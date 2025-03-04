@@ -2,6 +2,7 @@
 const electron = require("electron");
 const path = require("path");
 const utils = require("@electron-toolkit/utils");
+const Sqlite3 = require("sqlite3");
 const icon = path.join(__dirname, "../../resources/icon.png");
 function createWindow() {
   const mainWindow = new electron.BrowserWindow({
@@ -43,5 +44,20 @@ electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     electron.app.quit();
   }
+});
+electron.ipcMain.handle("get-items", async () => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READONLY);
+    db.all("SELECT * FROM Item", [], (err, rows) => {
+      if (err) {
+        console.error("Erro ao ler o DB.");
+        reject(err);
+      } else {
+        console.log("Sucesso em ler o DB.");
+        resolve(rows);
+      }
+    });
+    db.close();
+  });
 });
 //# sourceMappingURL=index.js.map

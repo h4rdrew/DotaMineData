@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import Sqlite3 from 'sqlite3'
 
 function createWindow(): void {
   // Create the browser window.
@@ -69,6 +70,60 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
-
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+
+ipcMain.handle('get-items', async () => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
+
+    db.all('SELECT * FROM Item', [], (err, rows) => {
+      if (err) {
+        console.error('Erro ao ler o DB.')
+        reject(err)
+      } else {
+        console.log('Sucesso em ler o DB.')
+        resolve(rows)
+      }
+    })
+    db.close()
+  })
+})
+
+// async function loadDB(): Promise<unknown> {
+//   return new Promise((resolve, reject) => {
+//     const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
+
+//     db.all('SELECT * FROM Item', [], (err, rows) => {
+//       if (err) {
+//         console.error('Erro ao ler o DB.')
+//         reject(err)
+//       } else {
+//         console.log('Sucesso em ler o DB.')
+//         resolve(rows)
+//       }
+//     })
+//     db.close()
+//   })
+// }
+
+// ipcMain.handle('get-chart-data', async () => loadDB())
+
+// function loadDB(): void {
+//   ipcMain.handle('get-chart-data', async () => {
+//     return new Promise((resolve, reject) => {
+//       const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
+
+//       db.all('SELECT * FROM Item', [], (err, rows) => {
+//         if (err) {
+//           console.error('Erro ao ler o DB.')
+//           reject(err)
+//         } else {
+//           console.log('Sucesso em ler o DB.')
+//           resolve(rows)
+//         }
+//       })
+//       db.close()
+//     })
+//   })
+// }
