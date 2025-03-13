@@ -4,6 +4,6 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: unknown
-    getitems: Promise<unknown>
+    getitems: Promise<SetStateAction<{ itemId: number; nome: string }[]>>
   }
 }

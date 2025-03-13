@@ -1,9 +1,9 @@
-import ChartsTeste from './components/chartsTeste.component'
+// import ChartsTeste from './components/chartsTeste.component'
 import electronLogo from './assets/electron.svg'
 import { useEffect, useState } from 'react'
 
 function App(): JSX.Element {
-  const [items, setItems] = useState<{ id: number; itemId: number; nome: string }[]>([])
+  const [items, setItems] = useState<{ Id: number; ItemId: number; Name: string }[]>([])
   // const readDB = (): void => window.electron.ipcRenderer.send('dbLoad')
 
   useEffect(() => {
@@ -28,7 +28,7 @@ function App(): JSX.Element {
 
       <ul>
         {items.map((item) => (
-          <li key={item.id}>{item.nome}</li>
+          <li key={item.Id}>{item.Name}</li>
         ))}
       </ul>
     </>
