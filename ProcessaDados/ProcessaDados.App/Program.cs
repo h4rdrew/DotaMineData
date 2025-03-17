@@ -16,7 +16,7 @@ Log.Logger = new LoggerConfiguration()
 Log.Information("Aplicação iniciada");
 
 const string filePath = "config.json";
-const decimal exchangeRate = 5.884m;
+const decimal exchangeRate = 5.742m;
 
 var config = leArquivoConfig(filePath);
 if (config == null)

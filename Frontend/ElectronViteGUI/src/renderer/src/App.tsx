@@ -1,19 +1,27 @@
 // import ChartsTeste from './components/chartsTeste.component'
-import electronLogo from './assets/electron.svg'
 import { useEffect, useRef, useState } from 'react'
 import AirDatepicker from 'air-datepicker'
 import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
+import { DataDB, ItemDB } from './interfaces'
 
 function App(): JSX.Element {
-  const [items, setItems] = useState<{ Id: number; ItemId: number; Name: string }[]>([])
-  // const readDB = (): void => window.electron.ipcRenderer.send('dbLoad')
-
+  const [items, setItems] = useState<ItemDB[]>([])
+  const [selectedItemData, setSelectedItemData] = useState<DataDB | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
 
   useEffect(() => {
-    window.getitems.then(setItems)
+    const fetchItems = async (): Promise<void> => {
+      try {
+        const data = await window.api.getItems()
+        setItems(data as ItemDB[])
+      } catch (error) {
+        console.error('Erro ao buscar itens:', error)
+      }
+    }
+
+    fetchItems()
 
     if (inputRef.current && !datepickerRef.current) {
       datepickerRef.current = new AirDatepicker(inputRef.current, {
@@ -63,6 +71,16 @@ function App(): JSX.Element {
     }
   }, [])
 
+  const buscaDadosItem = async (itemId: number): Promise<void> => {
+    try {
+      const data = await window.api.getItemData(itemId)
+      setSelectedItemData(data as unknown as DataDB)
+      console.log(data)
+    } catch (error) {
+      console.error(`Erro ao buscar dados do item ${itemId}:`, error)
+    }
+  }
+
   return (
     <>
       <div className="text">
@@ -80,9 +98,11 @@ function App(): JSX.Element {
       </div> */}
       {/* <ChartsTeste></ChartsTeste> */}
 
-      <ul>
+      <ul className="lista-itens">
         {items.map((item) => (
-          <li key={item.Id}>{item.Name}</li>
+          <li className="li-item" key={item.Id} onClick={() => buscaDadosItem(item.ItemId)}>
+            {item.Name}
+          </li>
         ))}
       </ul>
     </>

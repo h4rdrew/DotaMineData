@@ -73,11 +73,28 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
-ipcMain.handle('get-items', async () => {
+ipcMain.handle('getitems', async () => {
   return new Promise((resolve, reject) => {
     const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
 
     db.all('SELECT * FROM Item', [], (err, rows) => {
+      if (err) {
+        console.error('Erro ao ler o DB.')
+        reject(err)
+      } else {
+        console.log('Sucesso em ler o DB.')
+        resolve(rows)
+      }
+    })
+    db.close()
+  })
+})
+
+ipcMain.handle('getItemData', async (_event, itemId: number) => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
+
+    db.all('SELECT * FROM Data WHERE ItemId = ?', [`${itemId}`], (err, rows) => {
       if (err) {
         console.error('Erro ao ler o DB.')
         reject(err)

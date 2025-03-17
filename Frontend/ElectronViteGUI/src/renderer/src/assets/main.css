@@ -1,6 +1,29 @@
 @import './base.css';
 
 body {
+  /* display: flex;
+  align-items: center;
+  justify-content: center; */
+  /* overflow: hidden; */
+  background-image: url('./wavy-lines.svg');
+  background-size: cover;
+  user-select: none;
+}
+
+.lista-itens {
+  width: 300px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+}
+
+.li-item:hover {
+  background-color: #00000093;
+}
+
+/* @import './base.css';
+
+body {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,4 +191,4 @@ code {
   .actions {
     display: none;
   }
-}
+} */

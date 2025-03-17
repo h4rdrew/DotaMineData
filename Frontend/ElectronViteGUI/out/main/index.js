@@ -45,10 +45,25 @@ electron.app.on("window-all-closed", () => {
     electron.app.quit();
   }
 });
-electron.ipcMain.handle("get-items", async () => {
+electron.ipcMain.handle("getitems", async () => {
   return new Promise((resolve, reject) => {
     const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READONLY);
     db.all("SELECT * FROM Item", [], (err, rows) => {
+      if (err) {
+        console.error("Erro ao ler o DB.");
+        reject(err);
+      } else {
+        console.log("Sucesso em ler o DB.");
+        resolve(rows);
+      }
+    });
+    db.close();
+  });
+});
+electron.ipcMain.handle("getItemData", async (_event, itemId) => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READONLY);
+    db.all("SELECT * FROM Data WHERE ItemId = ?", [`${itemId}`], (err, rows) => {
       if (err) {
         console.error("Erro ao ler o DB.");
         reject(err);
