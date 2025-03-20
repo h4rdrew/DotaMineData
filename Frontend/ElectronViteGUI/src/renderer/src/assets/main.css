@@ -10,15 +10,40 @@ body {
   user-select: none;
 }
 
-.lista-itens {
+/* .lista-itens {
   width: 300px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+} */
+
+.li-item:hover {
+  background-color: #00000093;
+}
+
+.mainFlexBox {
+  display: flex;
+  align-items: flex-start;
+}
+
+.lista-itens {
+  width: 300px; /* Define um tamanho fixo */
+  flex-shrink: 0; /* Impede que a lista seja reduzida */
   overflow-y: auto;
   border: 1px solid #ccc;
   padding: 10px;
 }
 
-.li-item:hover {
-  background-color: #00000093;
+.charts-container {
+  flex-grow: 1; /* Permite que o gráfico ocupe o espaço restante */
+  min-width: 0; /* Evita que o gráfico force a lista a diminuir */
+  /* max-width: 900px; */
+  /* max-height: 500px; */
+}
+
+.item-selected {
+  width: 100%;
+  text-align: center;
 }
 
 /* @import './base.css';

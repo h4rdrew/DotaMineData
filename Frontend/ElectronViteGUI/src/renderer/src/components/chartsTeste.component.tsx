@@ -1,53 +1,95 @@
 import { useEffect, useRef } from 'react'
-import Chart from 'chart.js/auto'
+import Chart, { ChartData, ChartOptions } from 'chart.js/auto'
+import { ChartsTesteProps, ItemHistoric } from '@renderer/interfaces'
 
-function ChartsTeste(): JSX.Element {
+function formatPrice(price: number): string {
+  return `R$ ${price.toFixed(2).replace('.', ',')}`
+}
+
+function formatDate(date: string): string {
+  const d = new Date(date)
+  return d.toLocaleDateString('pt-BR') // Formato dd/MM/yyyy
+}
+
+function preprocessData(data: ItemHistoric[]): {
+  labels: string[]
+  datasets: ChartData<'line'>['datasets']
+} {
+  const steamData: { [key: string]: ItemHistoric } = {}
+  const dmarketData: { [key: string]: ItemHistoric } = {}
+
+  data.forEach((item) => {
+    const formattedDate = formatDate(item.DateTime)
+    if (item.ServiceType === 1) {
+      steamData[formattedDate] = item
+    } else if (item.ServiceType === 2) {
+      dmarketData[formattedDate] = item
+    }
+  })
+
+  const labels = Object.keys({ ...steamData, ...dmarketData }).sort()
+  const steamPrices = labels.map((date) => (steamData[date] ? steamData[date].Price : null))
+  const dmarketPrices = labels.map((date) => (dmarketData[date] ? dmarketData[date].Price : null))
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Steam',
+        data: steamPrices,
+        borderColor: 'blue',
+        backgroundColor: 'rgba(0, 0, 255, 0.5)',
+        tension: 0.1
+      },
+      {
+        label: 'DMarket',
+        data: dmarketPrices,
+        borderColor: 'green',
+        backgroundColor: 'rgba(0, 255, 0, 0.5)',
+        tension: 0.1
+      }
+    ]
+  }
+}
+
+export function ChartsTeste({ data }: ChartsTesteProps): JSX.Element {
   const chartRef = useRef<HTMLCanvasElement | null>(null)
   const chartInstanceRef = useRef<Chart | null>(null)
 
   useEffect(() => {
+    if (data == null) return
     if (!chartRef.current) return
 
-    // Verifica se já existe um gráfico para esse canvas e o destrói se necessário
     const existingChart = Chart.getChart(chartRef.current)
     if (existingChart) {
       existingChart.destroy()
     }
 
-    // Cria uma nova instância do gráfico
-    chartInstanceRef.current = new Chart(chartRef.current, {
-      type: 'bar',
-      data: {
-        labels: ['Janeiro', 'Fevereiro', 'Março', 'Abril'],
-        datasets: [
-          {
-            label: 'Vendas',
-            data: [12, 19, 3, 5],
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          y: {
-            beginAtZero: true
+    const { labels, datasets } = preprocessData(data)
+
+    const chartData: ChartData<'line'> = {
+      labels,
+      datasets
+    }
+
+    const options: ChartOptions<'line'> = {
+      responsive: true,
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: (tooltipItem) =>
+              `${tooltipItem.dataset.label}: ${formatPrice(tooltipItem.raw as number)}`
           }
         }
       }
-    })
-
-    // Destrói o gráfico ao desmontar o componente
-    return (): void => {
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy()
-      }
     }
-  }, [])
 
-  return <canvas ref={chartRef} id="myChart" />
+    chartInstanceRef.current = new Chart(chartRef.current, {
+      type: 'line',
+      data: chartData,
+      options
+    })
+  }, [data])
+
+  return <canvas ref={chartRef} />
 }
-
-export default ChartsTeste

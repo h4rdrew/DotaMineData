@@ -10,3 +10,16 @@ export interface DataDB {
   Price: number
   CaptureId: string
 }
+
+export interface ItemHistoric {
+  ItemId: number
+  Price: number
+  ServiceType: number
+  ExchangeRate: number
+  DateTime: string
+}
+
+export interface ChartsTesteProps {
+  labels: string[]
+  data: ItemHistoric[] | null
+}

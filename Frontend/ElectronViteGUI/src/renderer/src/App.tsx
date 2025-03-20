@@ -1,15 +1,16 @@
-// import ChartsTeste from './components/chartsTeste.component'
 import { useEffect, useRef, useState } from 'react'
 import AirDatepicker from 'air-datepicker'
 import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
-import { DataDB, ItemDB } from './interfaces'
+import { ItemDB, ItemHistoric } from './interfaces'
+import { ChartsTeste } from './components/chartsTeste.component'
 
 function App(): JSX.Element {
   const [items, setItems] = useState<ItemDB[]>([])
-  const [selectedItemData, setSelectedItemData] = useState<DataDB | null>(null)
+  const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
+  let itemSelected = useRef<string>('')
 
   useEffect(() => {
     const fetchItems = async (): Promise<void> => {
@@ -71,13 +72,14 @@ function App(): JSX.Element {
     }
   }, [])
 
-  const buscaDadosItem = async (itemId: number): Promise<void> => {
+  const buscaDadosItem = async (item: ItemDB): Promise<void> => {
     try {
-      const data = await window.api.getItemData(itemId)
-      setSelectedItemData(data as unknown as DataDB)
+      const data = await window.api.getItemData(item.ItemId)
+      setSelectedItemData(data as unknown as ItemHistoric[])
+      itemSelected.current = item.Name
       console.log(data)
     } catch (error) {
-      console.error(`Erro ao buscar dados do item ${itemId}:`, error)
+      console.error(`Erro ao buscar dados do item ${item.ItemId} | ${item.Name}:`, error)
     }
   }
 
@@ -86,25 +88,22 @@ function App(): JSX.Element {
       <div className="text">
         Exibir lista de <span className="ts">itens</span>
       </div>
-
       <input ref={inputRef} type="text" placeholder="Selecione uma data" />
 
-      {/* <div className="actions">
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={readDB}>
-            Read DB
-          </a>
-        </div>
-      </div> */}
-      {/* <ChartsTeste></ChartsTeste> */}
+      <div className="mainFlexBox">
+        <ul className="lista-itens">
+          {items.map((item) => (
+            <li className="li-item" key={item.Id} onClick={() => buscaDadosItem(item)}>
+              {item.Name}
+            </li>
+          ))}
+        </ul>
 
-      <ul className="lista-itens">
-        {items.map((item) => (
-          <li className="li-item" key={item.Id} onClick={() => buscaDadosItem(item.ItemId)}>
-            {item.Name}
-          </li>
-        ))}
-      </ul>
+        <div className="charts-container">
+          <div className="item-selected">{itemSelected.current}</div>
+          <ChartsTeste data={selectedItemData} labels={[]} />
+        </div>
+      </div>
     </>
   )
 }

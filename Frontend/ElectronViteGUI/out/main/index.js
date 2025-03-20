@@ -48,7 +48,7 @@ electron.app.on("window-all-closed", () => {
 electron.ipcMain.handle("getitems", async () => {
   return new Promise((resolve, reject) => {
     const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READONLY);
-    db.all("SELECT * FROM Item", [], (err, rows) => {
+    db.all("SELECT * FROM Item ORDER BY Name", [], (err, rows) => {
       if (err) {
         console.error("Erro ao ler o DB.");
         reject(err);
@@ -63,15 +63,30 @@ electron.ipcMain.handle("getitems", async () => {
 electron.ipcMain.handle("getItemData", async (_event, itemId) => {
   return new Promise((resolve, reject) => {
     const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READONLY);
-    db.all("SELECT * FROM Data WHERE ItemId = ?", [`${itemId}`], (err, rows) => {
-      if (err) {
-        console.error("Erro ao ler o DB.");
-        reject(err);
-      } else {
-        console.log("Sucesso em ler o DB.");
-        resolve(rows);
+    db.all(
+      `SELECT
+ItemCaptured.DateTime,
+ItemCaptured.ExchangeRate,
+ItemCaptured.ServiceType,
+CollectData.Price,
+CollectData.ItemId
+FROM CollectData
+INNER JOIN ItemCaptured ON CollectData.CaptureId = ItemCaptured.CaptureId
+WHERE ItemCaptured.DateTime != 0
+AND CollectData.ItemId = ?
+ORDER BY date(ItemCaptured.DateTime)
+      `,
+      [`${itemId}`],
+      (err, rows) => {
+        if (err) {
+          console.error("Erro ao ler o DB.");
+          reject(err);
+        } else {
+          console.log("Sucesso em ler o DB.");
+          resolve(rows);
+        }
       }
-    });
+    );
     db.close();
   });
 });

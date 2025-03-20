@@ -2,7 +2,7 @@
 
 namespace ProcessaDados.App.Models.Db;
 
-struct Data
+struct CollectData
 {
     [PrimaryKey, AutoIncrement]
     public int Id { get; set; }

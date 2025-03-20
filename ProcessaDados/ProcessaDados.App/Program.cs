@@ -16,7 +16,7 @@ Log.Logger = new LoggerConfiguration()
 Log.Information("Aplicação iniciada");
 
 const string filePath = "config.json";
-const decimal exchangeRate = 5.742m;
+const decimal exchangeRate = 5.648m;
 
 var config = leArquivoConfig(filePath);
 if (config == null)
@@ -35,7 +35,7 @@ using var cnn = ConnectionFactory.CreateConnection(config?.DbPath);
 // Cria o schema do BD
 cnn.CreateTables()
    .Add<ItemCaptured>()
-   .Add<Data>()
+   .Add<CollectData>()
    .Add<Item>()
    .Add<ServiceMethod>()
    .Commit();
@@ -70,7 +70,7 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
     // Número máximo de tentativas
     const int maxRetries = 10;
 
-    var bulk_Data = new List<Data>();
+    var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
 
     const string baseUrl = "https://steamcommunity.com/market/search?appid=570&q=prop_def_index:";
@@ -123,7 +123,7 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
 
                 if (lowestPrice > 0)
                 {
-                    bulk_Data.Add(new Data()
+                    bulk_Data.Add(new CollectData()
                     {
                         CaptureId = captureId,
                         ItemId = item.ItemId,
@@ -245,7 +245,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
     const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items?side=market&orderBy=price&orderDir=asc&title=";
     const string paramsUrl = "&priceFrom=0&priceTo=0&treeFilters=&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=20&currency=USD&platform=browser&isLoggedIn=false";
 
-    var bulk_Data = new List<Data>();
+    var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
 
     foreach (var item in itens)
@@ -275,7 +275,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
 
                 Log.Information($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Preço: R$ {priceBRL} | {item.Name}");
 
-                bulk_Data.Add(new Data()
+                bulk_Data.Add(new CollectData()
                 {
                     CaptureId = captureId,
                     ItemId = item.ItemId,
