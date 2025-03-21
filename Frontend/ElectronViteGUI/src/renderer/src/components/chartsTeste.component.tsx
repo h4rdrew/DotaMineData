@@ -27,7 +27,11 @@ function preprocessData(data: ItemHistoric[]): {
     }
   })
 
-  const labels = Object.keys({ ...steamData, ...dmarketData }).sort()
+  // const labels = Object.keys({ ...steamData, ...dmarketData }).sort()
+  const labels = Object.keys({ ...steamData, ...dmarketData })
+    .map((date) => ({ date, timestamp: new Date(date.split('/').reverse().join('-')).getTime() })) // Converte para timestamp
+    .sort((a, b) => a.timestamp - b.timestamp) // Ordena corretamente
+    .map((item) => item.date) // Retorna para o formato original
   const steamPrices = labels.map((date) => (steamData[date] ? steamData[date].Price : null))
   const dmarketPrices = labels.map((date) => (dmarketData[date] ? dmarketData[date].Price : null))
 

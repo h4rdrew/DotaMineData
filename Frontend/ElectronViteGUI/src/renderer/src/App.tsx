@@ -10,7 +10,7 @@ function App(): JSX.Element {
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
-  let itemSelected = useRef<string>('')
+  const itemSelected = useRef<string>('')
 
   useEffect(() => {
     const fetchItems = async (): Promise<void> => {
