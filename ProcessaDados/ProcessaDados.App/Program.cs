@@ -5,6 +5,7 @@ using ProcessaDados.App.Models.HttpResponse;
 using Serilog;
 using Simple.Sqlite;
 using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 
 // Configurando o Serilog
@@ -16,7 +17,7 @@ Log.Logger = new LoggerConfiguration()
 Log.Information("Aplicação iniciada");
 
 const string filePath = "config.json";
-const decimal exchangeRate = 5.648m;
+const decimal exchangeRate = 5.728m;
 
 var config = leArquivoConfig(filePath);
 if (config == null)
@@ -49,6 +50,11 @@ Log.Information("Iniciando captura de dados...");
 //await capturaIdItens(cnn, config?.Items);
 
 var itens = cnn.GetAll<Item>();
+
+// utilizei o itens do DB pois é o mesmo do config.json e ficaria mais fácil de testar com os IDs
+// Para novos itens, gravar antes utilizando o método capturaIdItens, para que o ID seja salvo no DB
+// TODO: Futuramente seria interessante utilizar em conjunto com o método capturaIdItens e já baixar as imagens
+//await capturaImagensItens(cnn, config?.ImgPath, itens);
 
 var dmarketTask = dmarket(cnn, exchangeRate, itens);
 var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies);
@@ -195,7 +201,7 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
                 // Ler o HTML da resposta
                 string htmlContent = await response.Content.ReadAsStringAsync();
 
-                // Expressão regular para capturar o ID dentro da div com classe infobox-image-text
+                // Expressão regular para capturar o ID dentro da div com a class="infobox-image-text"
                 var match = Regex.Match(htmlContent, @"<div class=""infobox-image-text"">ID:\s*(\d+)</div>");
 
                 if (match.Success)
@@ -323,4 +329,103 @@ static ConfigJson? leArquivoConfig(string filePath)
     }
 
     return null;
+}
+
+/// <summary>
+/// Busca e salva imagens dos itens
+/// </summary>
+static async Task capturaImagensItens(ISqliteConnection cnn, string? imgPath, IEnumerable<Item> itens)
+{
+    HttpClient _httpClient = new();
+
+    var bulk_Item = new List<Item>();
+
+    // URL base da API
+    const string host = "https://liquipedia.net";
+    const string baseUrl = $"{host}/dota2/";
+
+    // Obtém a lista de arquivos existentes na pasta e extrai os ItemIds
+    var arquivosExistentes = Directory.GetFiles(imgPath, "*.png")
+        .Select(Path.GetFileNameWithoutExtension)
+        .Where(nome => int.TryParse(nome, out _))
+        .ToHashSet();
+
+    foreach (var item in itens)
+    {
+        string itemId = item.ItemId.ToString();
+
+        // Se a imagem já existir na pasta, pula o item
+        if (arquivosExistentes.Contains(itemId))
+        {
+            Log.Information($"Imagem já existente para ItemId {itemId}, pulando...");
+            continue;
+        }
+
+        var formattedItem = item.Name.Replace(" ", "_");
+        string encodedItem = Uri.EscapeDataString(formattedItem);
+        string fullUrl = $"{baseUrl}{encodedItem}";
+
+        try
+        {
+            // Enviar requisição GET
+            HttpResponseMessage response = await _httpClient.GetAsync(fullUrl);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Ler o HTML da resposta
+                string htmlContent = await response.Content.ReadAsStringAsync();
+
+                // Regex para encontrar uma imagem com width="600" height="400" e extensão .png
+                string pattern = @"<img[^>]+src=""(?<src>[^""]+\.png)""[^>]*width=""600""[^>]*height=";
+                Match match = Regex.Match(htmlContent, pattern, RegexOptions.IgnoreCase);
+
+                if (match.Success)
+                {
+                    string imgSrc = match.Groups["src"].Value;
+                    string imgUrl = imgSrc.StartsWith("http") ? imgSrc : host + imgSrc;
+
+                    // Baixa e salva a imagem
+                    Log.Information($"Baixando img: {item.Name}");
+                    await downloadImage(imgUrl, item, imgPath);
+                }
+                else
+                {
+                    Log.Warning($"Img não encontrado. Item: {item.Name}");
+                }
+            }
+            else
+            {
+                Log.Error($"Erro ao localizar a img: {item.Name}");
+                continue;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, $"Erro ao processar o item: {item}");
+            continue;
+        }
+
+        // Pequeno atraso para evitar sobrecarga na API
+        await Task.Delay(2000);
+    }
+}
+
+static async Task downloadImage(string imgUrl, Item item, string? imgPath)
+{
+    HttpClient _httpClient = new();
+
+    HttpResponseMessage imgResponse = await _httpClient.GetAsync(imgUrl);
+    if (imgResponse.IsSuccessStatusCode)
+    {
+        byte[] imageBytes = await imgResponse.Content.ReadAsByteArrayAsync();
+        string fileName = Path.GetFileName(new Uri(imgUrl).AbsolutePath);
+        string filePath = Path.Combine(imgPath ?? Directory.GetCurrentDirectory(), item.ItemId.ToString() + ".png");
+
+        await File.WriteAllBytesAsync(filePath, imageBytes);
+        Log.Information($"Sucesso em baixar a img: {item.Name}");
+    }
+    else
+    {
+        Log.Error($"Falha ao baixar a imagem: {item.Name}");
+    }
 }
