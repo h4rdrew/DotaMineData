@@ -4,6 +4,7 @@ using ProcessaDados.App.Models.Db;
 using ProcessaDados.App.Models.HttpResponse;
 using Serilog;
 using Simple.Sqlite;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
@@ -17,7 +18,6 @@ Log.Logger = new LoggerConfiguration()
 Log.Information("Aplicação iniciada");
 
 const string filePath = "config.json";
-const decimal exchangeRate = 5.728m;
 
 var config = leArquivoConfig(filePath);
 if (config == null)
@@ -55,6 +55,16 @@ var itens = cnn.GetAll<Item>();
 // Para novos itens, gravar antes utilizando o método capturaIdItens, para que o ID seja salvo no DB
 // TODO: Futuramente seria interessante utilizar em conjunto com o método capturaIdItens e já baixar as imagens
 //await capturaImagensItens(cnn, config?.ImgPath, itens);
+
+Log.Information("Iniciando captura do valor do dolar");
+var exchangeRate = await capturaExchangeRate(cnn);
+Log.Information($"Cotação do dólar: {exchangeRate}");
+
+if (exchangeRate == 0)
+{
+    Log.Error("Erro ao capturar a cotação do dólar. Encerrando aplicação.");
+    return;
+}
 
 var dmarketTask = dmarket(cnn, exchangeRate, itens);
 var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies);
@@ -428,4 +438,19 @@ static async Task downloadImage(string imgUrl, Item item, string? imgPath)
     {
         Log.Error($"Falha ao baixar a imagem: {item.Name}");
     }
+}
+
+static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn)
+{
+    HttpClient _httpClient = new();
+    const string url = "https://economia.awesomeapi.com.br/json/last/USD-BRL";
+    HttpResponseMessage response = await _httpClient.GetAsync(url);
+    if (response.IsSuccessStatusCode)
+    {
+        string responseData = await response.Content.ReadAsStringAsync();
+        var result = JsonConvert.DeserializeObject<ExchangeRateResponse>(responseData);
+        if (result == null) return 0;
+        return decimal.Parse(result.USDBRL.bid, CultureInfo.InvariantCulture);
+    }
+    return 0;
 }
