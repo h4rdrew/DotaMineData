@@ -11,24 +11,12 @@ function App(): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
   const itemSelected = useRef<string>('')
-  const [imagePaths, setImagePaths] = useState<{ [key: string]: string | null }>({})
 
   useEffect(() => {
     const fetchItems = async (): Promise<void> => {
       try {
         const data = await window.api.getItems()
         setItems(data as ItemDB[])
-
-        // Carregar os caminhos das imagens para todos os itens
-        const paths = await Promise.all(
-          data.map(async (item) => {
-            const path = await window.api.getImagePath(item.ItemId)
-            return { [item.ItemId]: path }
-          })
-        )
-
-        // Atualiza o estado com os caminhos das imagens
-        setImagePaths(Object.assign({}, ...paths))
       } catch (error) {
         console.error('Erro ao buscar itens:', error)
       }

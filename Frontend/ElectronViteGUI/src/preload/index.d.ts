@@ -6,7 +6,6 @@ declare global {
     api: {
       getItems: () => Promise<ItemDB[]> // Sem argumentos
       getItemData: (itemId: number) => Promise<DataDB[]> // Recebe itemId
-      getImagePath: (itemId: number) => Promise<string> // Recebe itemId
     }
   }
 }
