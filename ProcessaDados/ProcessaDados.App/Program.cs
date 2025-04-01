@@ -255,6 +255,8 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
 /// <returns></returns>
 static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens)
 {
+    var excludedTitles = new[] { "Kinetic" };
+
     HttpClient _httpClient = new();
 
     // URL base e parâmetros fixos
@@ -282,8 +284,11 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
                 var result = JsonConvert.DeserializeObject<DmarketResponse>(responseData);
                 if (result == null) continue;
 
-                // Pega o primeiro "objects" sendo o resultado esperado da query do GET
-                var itemResult = result.objects.FirstOrDefault();
+                // Ignora qualquer item que comece com o título da lista de exclusão
+                var itemResult = result.objects.FirstOrDefault(o => !excludedTitles.Any(excluded => o.title.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)));
+                // Ignora qualquer item com o título que está na lista de exclusão
+                //var itemResult = result.objects.FirstOrDefault(o => !excludedTitles.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase)));
+
                 if (itemResult == null) continue;
 
                 // Converte o preço em DOLAR para BRL (em decimal com duas casas decimais)

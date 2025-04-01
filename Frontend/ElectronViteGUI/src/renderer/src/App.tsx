@@ -11,65 +11,30 @@ function App(): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
   const itemSelected = useRef<string>('')
+  const [imagePaths, setImagePaths] = useState<{ [key: string]: string | null }>({})
 
   useEffect(() => {
     const fetchItems = async (): Promise<void> => {
       try {
         const data = await window.api.getItems()
         setItems(data as ItemDB[])
+
+        // Carregar os caminhos das imagens para todos os itens
+        const paths = await Promise.all(
+          data.map(async (item) => {
+            const path = await window.api.getImagePath(item.ItemId)
+            return { [item.ItemId]: path }
+          })
+        )
+
+        // Atualiza o estado com os caminhos das imagens
+        setImagePaths(Object.assign({}, ...paths))
       } catch (error) {
         console.error('Erro ao buscar itens:', error)
       }
     }
 
     fetchItems()
-
-    if (inputRef.current && !datepickerRef.current) {
-      datepickerRef.current = new AirDatepicker(inputRef.current, {
-        autoClose: true, // Fecha automaticamente após seleção
-        dateFormat: 'dd/MM/yyyy', // Define o formato da data
-        position: 'bottom left', // Posição do calendário
-        inline: false,
-        selectedDates: [new Date()],
-        locale: {
-          days: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
-          daysShort: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
-          daysMin: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'],
-          months: [
-            'Janeiro',
-            'Fevereiro',
-            'Março',
-            'Abril',
-            'Maio',
-            'Junho',
-            'Julho',
-            'Agosto',
-            'Setembro',
-            'Outubro',
-            'Novembro',
-            'Dezembro'
-          ],
-          monthsShort: [
-            'Jan',
-            'Fev',
-            'Mar',
-            'Abr',
-            'Mai',
-            'Jun',
-            'Jul',
-            'Ago',
-            'Set',
-            'Out',
-            'Nov',
-            'Dez'
-          ],
-          today: 'Hoje',
-          clear: 'Limpar',
-          dateFormat: 'dd/MM/yyyy',
-          firstDay: 0
-        }
-      })
-    }
   }, [])
 
   const buscaDadosItem = async (item: ItemDB): Promise<void> => {
@@ -85,23 +50,132 @@ function App(): JSX.Element {
 
   return (
     <>
-      <div className="text">
+      {/*<div className="text">
         Exibir lista de <span className="ts">itens</span>
       </div>
       <input ref={inputRef} type="text" placeholder="Selecione uma data" />
 
-      <div className="mainFlexBox">
+       <select>
+        <option selected value="0">
+          Nome
+        </option>
+        <option value="1">Preço menor: DMarket</option>
+        <option value="2">Preço menor: Steam</option>
+        <option value="3">Preço maior: DMarket</option>
+        <option value="3">Preço maior: Steam</option>
+      </select>
+
+       <div className="mainFlexBox">
         <ul className="lista-itens">
           {items.map((item) => (
-            <li className="li-item" key={item.Id} onClick={() => buscaDadosItem(item)}>
+            <li className="li-item" key={item.ItemId} onClick={() => buscaDadosItem(item)}>
               {item.Name}
             </li>
           ))}
         </ul>
-
         <div className="charts-container">
           <div className="item-selected">{itemSelected.current}</div>
           <ChartsTeste data={selectedItemData} labels={[]} />
+        </div>
+      </div> */}
+
+      <div id="sideBar" className="charts-container">
+        <div className="item-selected">{itemSelected.current}</div>
+        <ChartsTeste data={selectedItemData} labels={[]} />
+      </div>
+
+      <div id="searchResults" className="market_page_left">
+        <div
+          id="searchResultsTable"
+          className="market_content_block market_home_listing_table market_home_main_listing_table market_listing_table market_listing_table_active"
+        >
+          <div id="searchResultsRows">
+            <div className="market_listing_table_header">
+              <div className="market_listing_price_listings_block">
+                <div
+                  className="market_listing_right_cell market_listing_their_price market_sortable_column"
+                  data-sorttype="price"
+                >
+                  DMARKET<span className="market_sort_arrow" style={{ display: 'none' }}></span>
+                </div>
+                <div
+                  className="market_listing_right_cell market_listing_num_listings market_sortable_column"
+                  data-sorttype="quantity"
+                >
+                  STEAM<span className="market_sort_arrow" style={{ display: 'none' }}></span>
+                </div>
+                <div
+                  className="market_listing_right_cell market_listing_price_listings_combined market_sortable_column"
+                  data-sorttype="price"
+                >
+                  PREÇO<span className="market_sort_arrow" style={{ display: 'none' }}></span>
+                </div>
+              </div>
+              <div className="market_sortable_column" data-sorttype="name">
+                <span className="market_listing_header_namespacer"></span>NOME
+                <span className="market_sort_arrow" style={{ display: 'none' }}></span>
+              </div>
+            </div>
+
+            {items.map((item) => (
+              <div
+                className="market_listing_row_link"
+                id="resultlink_0"
+                key={item.ItemId}
+                onClick={() => buscaDadosItem(item)}
+              >
+                <div
+                  className="market_listing_row market_recent_listing_row market_listing_searchresult"
+                  id="result_0"
+                  data-appid="570"
+                  data-hash-name="Autographed Stuntwood Sanctuary"
+                >
+                  <img
+                    id="result_0_image"
+                    key={item.ItemId}
+                    src={`file:///E:/DotaMine/img/${item.ItemId}.png`} // Usa fallback se a imagem não existir
+                    style={{ borderColor: '#D2D2D2' }}
+                    className="market_listing_item_img"
+                    alt=""
+                  ></img>
+                  <div className="market_listing_price_listings_block">
+                    <div className="market_listing_right_cell market_listing_num_listings">
+                      <span className="market_table_value">
+                        <span className="market_listing_num_listings_qty" data-qty="29">
+                          29
+                        </span>
+                      </span>
+                    </div>
+                    <div className="market_listing_right_cell market_listing_their_price">
+                      <span className="market_table_value normal_price">
+                        A partir de:
+                        <br />
+                        <span className="normal_price" data-price="273" data-currency="7">
+                          R$ 2,73
+                        </span>
+                        <span className="sale_price">R$ 2,62</span>
+                      </span>
+                      <span className="market_arrow_down" style={{ display: 'none' }}></span>
+                      <span className="market_arrow_up" style={{ display: 'none' }}></span>
+                    </div>
+                  </div>
+
+                  <div className="market_listing_item_name_block">
+                    <span
+                      id="result_0_name"
+                      className="market_listing_item_name"
+                      style={{ color: '#D2D2D2' }}
+                    >
+                      {item.Name}
+                    </span>
+                    <br />
+                    <span className="market_listing_game_name">Dota 2</span>
+                  </div>
+                  <div style={{ clear: 'both' }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

@@ -3,6 +3,7 @@ const electron = require("electron");
 const path = require("path");
 const utils = require("@electron-toolkit/utils");
 const Sqlite3 = require("sqlite3");
+const fs = require("fs");
 const icon = path.join(__dirname, "../../resources/icon.png");
 function createWindow() {
   const mainWindow = new electron.BrowserWindow({
@@ -13,7 +14,8 @@ function createWindow() {
     ...process.platform === "linux" ? { icon } : {},
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
-      sandbox: false
+      sandbox: false,
+      webSecurity: false
     }
   });
   mainWindow.on("ready-to-show", () => {
@@ -89,5 +91,9 @@ ORDER BY date(ItemCaptured.DateTime)
     );
     db.close();
   });
+});
+electron.ipcMain.handle("getImagePath", (event, itemId) => {
+  const imagePath = path.join("E:\\DotaMine\\img", `${itemId}.png`);
+  return fs.existsSync(imagePath) ? `file://${imagePath}` : null;
 });
 //# sourceMappingURL=index.js.map

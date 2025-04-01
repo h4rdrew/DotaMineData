@@ -1,8 +1,9 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import Sqlite3 from 'sqlite3'
+import fs from 'fs'
 
 function createWindow(): void {
   // Create the browser window.
@@ -14,7 +15,8 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      webSecurity: false
     }
   })
 
@@ -120,6 +122,12 @@ ORDER BY date(ItemCaptured.DateTime)
     )
     db.close()
   })
+})
+
+// Expor o caminho das imagens
+ipcMain.handle('getImagePath', (event, itemId) => {
+  const imagePath = path.join('E:\\DotaMine\\img', `${itemId}.png`)
+  return fs.existsSync(imagePath) ? `file://${imagePath}` : null
 })
 
 // async function loadDB(): Promise<unknown> {

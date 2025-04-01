@@ -4,7 +4,8 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   getItems: (): Promise<unknown[]> => ipcRenderer.invoke('getitems'),
-  getItemData: (itemId: number): Promise<unknown[]> => ipcRenderer.invoke('getItemData', itemId)
+  getItemData: (itemId: number): Promise<unknown[]> => ipcRenderer.invoke('getItemData', itemId),
+  getImagePath: (itemId: number): Promise<string> => ipcRenderer.invoke('getImagePath', itemId)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

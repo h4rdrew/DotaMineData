@@ -27,7 +27,6 @@ function preprocessData(data: ItemHistoric[]): {
     }
   })
 
-  // const labels = Object.keys({ ...steamData, ...dmarketData }).sort()
   const labels = Object.keys({ ...steamData, ...dmarketData })
     .map((date) => ({ date, timestamp: new Date(date.split('/').reverse().join('-')).getTime() })) // Converte para timestamp
     .sort((a, b) => a.timestamp - b.timestamp) // Ordena corretamente
@@ -78,6 +77,10 @@ export function ChartsTeste({ data }: ChartsTesteProps): JSX.Element {
 
     const options: ChartOptions<'line'> = {
       responsive: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
       plugins: {
         tooltip: {
           callbacks: {
