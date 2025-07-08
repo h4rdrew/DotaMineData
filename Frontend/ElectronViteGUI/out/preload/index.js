@@ -3,7 +3,8 @@ const electron = require("electron");
 const preload = require("@electron-toolkit/preload");
 const api = {
   getItems: () => electron.ipcRenderer.invoke("getitems"),
-  getItemData: (itemId) => electron.ipcRenderer.invoke("getItemData", itemId)
+  getItemData: (itemId) => electron.ipcRenderer.invoke("getItemData", itemId),
+  getItemDataDateNow: () => electron.ipcRenderer.invoke("getItemDataDateNow")
 };
 if (process.contextIsolated) {
   try {

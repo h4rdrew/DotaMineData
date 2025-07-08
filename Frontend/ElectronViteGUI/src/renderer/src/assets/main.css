@@ -17,6 +17,12 @@ body {
   user-select: none;
 }
 
+body,
+html {
+  height: 100vh;
+  overflow: hidden; /* Impede scroll geral da página */
+}
+
 /* .lista-itens {
   width: 300px;
   overflow-y: auto;
@@ -79,6 +85,16 @@ select {
     color: inherit;
     background-color: var(--option-bg);
   }
+}
+
+.choice-wrapper {
+  border-right: var(--border);
+  display: flex;
+  flex-direction: column;
+  grid-area: choice;
+  overflow-y: auto;
+  padding: 1rem 0px 1rem 1rem;
+  row-gap: 0.4rem;
 }
 
 /* @import './base.css';
@@ -870,7 +886,7 @@ a.market_listing_item_name_link:hover {
 
 .market_listing_searchresult .market_listing_their_price > span {
   vertical-align: top;
-  margin: 1.3em 0;
+  margin: 2em 0;
 }
 
 .market_listing_their_price > .market_table_value .normal_price,
@@ -1021,7 +1037,7 @@ a.item_market_action_button_disabled {
 }
 
 .market_page_left {
-  padding-top: 2em;
+  /* padding-top: 2em; */
   max-width: 639px;
 }
 
@@ -3039,4 +3055,44 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
   html.responsive #market_buynow_dialog_item .market_listing_table_header {
     display: none;
   }
+}
+
+.container {
+  display: flex;
+  height: 100vh;
+}
+.coluna-esquerda {
+  /* width: 50%; */
+  overflow-y: auto;
+  /* background-color: #f0f0f0;
+  padding: 16px; */
+  height: calc(100vh - 50px);
+}
+.coluna-direita {
+  /* width: 50%; */
+  overflow: hidden; /* Impede qualquer scroll aqui */
+  /* background-color: #ddd;
+  padding: 16px; */
+}
+
+/* width */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  box-shadow: inset 0 0 5px grey;
+  border-radius: 10px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: rgb(109, 109, 109);
+  border-radius: 10px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(62, 62, 62);
 }

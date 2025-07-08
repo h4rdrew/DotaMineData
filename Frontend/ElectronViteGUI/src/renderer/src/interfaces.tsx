@@ -23,3 +23,9 @@ export interface ChartsTesteProps {
   labels: string[]
   data: ItemHistoric[] | null
 }
+
+export interface ItemDataDateNow {
+  ItemId: number
+  Price: number
+  ServiceType: number
+}

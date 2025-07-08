@@ -5,6 +5,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   getItems: (): Promise<unknown[]> => ipcRenderer.invoke('getitems'),
   getItemData: (itemId: number): Promise<unknown[]> => ipcRenderer.invoke('getItemData', itemId),
+  getItemDataDateNow: (): Promise<unknown[]> => ipcRenderer.invoke('getItemDataDateNow')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

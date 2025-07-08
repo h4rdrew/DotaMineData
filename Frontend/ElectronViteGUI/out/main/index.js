@@ -92,6 +92,40 @@ ORDER BY date(ItemCaptured.DateTime)
     db.close();
   });
 });
+electron.ipcMain.handle("getItemDataDateNow", async () => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READONLY);
+    db.all(
+      `SELECT
+    cd.ItemId,
+    cd.Price,
+    ic.ServiceType
+FROM ItemCaptured ic
+JOIN CollectData cd ON ic.CaptureId = cd.CaptureId
+WHERE substr(ic.DateTime, 1, 10) = date('now', '-3 hours') -- Considera fuso horário de SP - BRASIL
+AND ic.DateTime = (
+    SELECT MAX(DateTime)
+    FROM ItemCaptured
+    WHERE CaptureId = ic.CaptureId
+    AND substr(DateTime, 1, 10) = date('now', '-3 hours') -- Considera fuso horário de SP - BRASIL
+)
+-- ORDER BY ic.DateTime DESC;
+ORDER BY cd.ItemId
+      `,
+      [],
+      (err, rows) => {
+        if (err) {
+          console.error("Erro ao ler o DB.");
+          reject(err);
+        } else {
+          console.log("Sucesso em ler o DB.");
+          resolve(rows);
+        }
+      }
+    );
+    db.close();
+  });
+});
 electron.ipcMain.handle("getImagePath", (event, itemId) => {
   const imagePath = path.join("E:\\DotaMine\\img", `${itemId}.png`);
   return fs.existsSync(imagePath) ? `file://${imagePath}` : null;
