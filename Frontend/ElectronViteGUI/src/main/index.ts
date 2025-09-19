@@ -129,21 +129,25 @@ ipcMain.handle('getItemDataDateNow', async () => {
     const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
 
     db.all(
-      `SELECT
-    cd.ItemId,
-    cd.Price,
-    ic.ServiceType
-FROM ItemCaptured ic
-JOIN CollectData cd ON ic.CaptureId = cd.CaptureId
-WHERE substr(ic.DateTime, 1, 10) = date('now', '-3 hours') -- Considera fuso horário de SP - BRASIL
-AND ic.DateTime = (
-    SELECT MAX(DateTime)
-    FROM ItemCaptured
-    WHERE CaptureId = ic.CaptureId
-    AND substr(DateTime, 1, 10) = date('now', '-3 hours') -- Considera fuso horário de SP - BRASIL
+      `WITH UltimoCapture AS (
+    SELECT
+        cd.ItemId,
+        cd.Price,
+        ic.ServiceType,
+        ROW_NUMBER() OVER (
+            PARTITION BY cd.ItemId, ic.ServiceType
+            ORDER BY ic.DateTime DESC
+        ) AS rn
+    FROM CollectData cd
+    JOIN ItemCaptured ic
+        ON cd.CaptureId = ic.CaptureId
+    WHERE ic.DateTime != 0
+      AND ic.ServiceType IN (1, 2)
 )
--- ORDER BY ic.DateTime DESC;
-ORDER BY cd.ItemId
+SELECT ServiceType, Price, ItemId
+FROM UltimoCapture
+WHERE rn = 1
+ORDER BY ItemId, ServiceType;
       `,
       [],
       (err, rows) => {

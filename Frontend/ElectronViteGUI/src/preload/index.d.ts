@@ -8,5 +8,8 @@ declare global {
       getItemData: (itemId: number) => Promise<DataDB[]> // Recebe itemId
       getItemDataDateNow: () => Promise<ItemDataDateNow[]> // Sem argumentos
     }
+    eShell: {
+      openExternal: (url: string) => Promise<void>
+    }
   }
 }

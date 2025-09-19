@@ -56,7 +56,10 @@ html {
 
 .item-selected {
   width: 100%;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 /* <select> styles */
@@ -3095,4 +3098,12 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(62, 62, 62);
+}
+
+.market-link {
+  height: 20px;
+}
+
+.market_listing_row.market_recent_listing_row.market_listing_searchresult.selecionado {
+  border: 1px solid #324965;
 }

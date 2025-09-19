@@ -29,3 +29,10 @@ export interface ItemDataDateNow {
   Price: number
   ServiceType: number
 }
+
+export interface ItemMenu {
+  Id: number
+  ItemId: number
+  Name: string
+  Data: ItemDataDateNow[]
+}
