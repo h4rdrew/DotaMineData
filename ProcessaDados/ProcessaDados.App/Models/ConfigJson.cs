@@ -7,4 +7,5 @@ struct ConfigJson
     public string ImgPath { get; set; }
     public List<int> ItemIds { get; set; }
     public string SteamCookies { get; set; }
+    public string AwesomeApiKey { get; set; }
 }

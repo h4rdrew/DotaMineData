@@ -1,13 +1,12 @@
-﻿using Newtonsoft.Json;
+﻿using System.Globalization;
+using System.Net;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 using ProcessaDados.App.Models;
 using ProcessaDados.App.Models.Db;
 using ProcessaDados.App.Models.HttpResponse;
 using Serilog;
 using Simple.Sqlite;
-using System.Globalization;
-using System.Net;
-using System.Net.Http;
-using System.Text.RegularExpressions;
 
 // Configurando o Serilog
 Log.Logger = new LoggerConfiguration()
@@ -57,7 +56,7 @@ var itens = cnn.GetAll<Item>();
 //await capturaImagensItens(cnn, config?.ImgPath, itens);
 
 Log.Information("Iniciando captura do valor do dolar");
-var exchangeRate = await capturaExchangeRate(cnn);
+var exchangeRate = await capturaExchangeRate(cnn, config?.AwesomeApiKey);
 Log.Information($"Cotação do dólar: {exchangeRate}");
 
 if (exchangeRate == 0)
@@ -100,9 +99,17 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
         var cookieParts = cookie.Split('=', 2);
         if (cookieParts.Length == 2)
         {
-            string name = cookieParts[0].Trim();
-            string value = cookieParts[1].Trim();
-            cookieContainer.Add(new Cookie(name, value, "/", "steamcommunity.com"));
+            try
+            {
+                string name = cookieParts[0].Trim();
+                string value = cookieParts[1].Trim();
+                cookieContainer.Add(new Cookie(name, value, "/", "steamcommunity.com"));
+            }
+            catch (Exception)
+            {
+                Log.Error($"Erro ao adicionar cookie: {cookie}");
+                continue;
+            }
         }
     }
 
@@ -114,6 +121,7 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
 
         while (attempt <= maxRetries && !success)
         {
+            await Task.Delay(5000); // Delay de teste
             if (attempt > 0) await Task.Delay(2000);
 
             try
@@ -145,7 +153,7 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
                         ItemId = item.ItemId,
                         Price = lowestPrice,
                     });
-                    Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Preço: {lowestPrice:C} | {item.Name}");
+                    Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] {lowestPrice:C} | {item.Name}");
                     success = true;
                 }
                 else
@@ -255,7 +263,7 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
 /// <returns></returns>
 static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens)
 {
-    var excludedTitles = new[] { "Kinetic" };
+    var excludedTitles = new[] { "Kinetic", "Loading Screen" };
 
     HttpClient _httpClient = new();
 
@@ -284,8 +292,14 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
                 var result = JsonConvert.DeserializeObject<DmarketResponse>(responseData);
                 if (result == null) continue;
 
-                // Ignora qualquer item que comece com o título da lista de exclusão
-                var itemResult = result.objects.FirstOrDefault(o => !excludedTitles.Any(excluded => o.title.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)));
+                // Ignora qualquer item que comece, ou termine com o título da lista de exclusão
+                var itemResult = result.objects.FirstOrDefault(o =>
+                    !excludedTitles.Any(excluded =>
+                        o.title.StartsWith(excluded, StringComparison.OrdinalIgnoreCase) ||
+                        o.title.EndsWith(excluded, StringComparison.OrdinalIgnoreCase)
+                    )
+                );
+
                 // Ignora qualquer item com o título que está na lista de exclusão
                 //var itemResult = result.objects.FirstOrDefault(o => !excludedTitles.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase)));
 
@@ -294,7 +308,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
                 // Converte o preço em DOLAR para BRL (em decimal com duas casas decimais)
                 var priceBRL = Math.Round(decimal.Parse(itemResult.price.USD) * exchangeRate / 100, 2);
 
-                Log.Information($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Preço: R$ {priceBRL} | {item.Name}");
+                Log.Information($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] R$ {priceBRL} | {item.Name}");
 
                 bulk_Data.Add(new CollectData()
                 {
@@ -445,11 +459,15 @@ static async Task downloadImage(string imgUrl, Item item, string? imgPath)
     }
 }
 
-static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn)
+static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn, string apiKey)
 {
-    HttpClient _httpClient = new();
     const string url = "https://economia.awesomeapi.com.br/json/last/USD-BRL";
+
+    HttpClient _httpClient = new();
+    _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
+
     HttpResponseMessage response = await _httpClient.GetAsync(url);
+
     if (response.IsSuccessStatusCode)
     {
         string responseData = await response.Content.ReadAsStringAsync();
