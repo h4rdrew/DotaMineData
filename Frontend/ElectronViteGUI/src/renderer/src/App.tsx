@@ -212,8 +212,11 @@ function App(): JSX.Element {
           >
             <div id="searchResultsRows">
               <div className="market_listing_table_header">
+                <div className="market_listing_right_cell" style={{ width: '70px' }}>
+                  OWNED
+                </div>
+
                 <div className="market_listing_price_listings_block">
-                  <div className="market_listing_right_cell">OWNED</div>
                   <div
                     className="market_listing_right_cell market_listing_their_price market_sortable_column"
                     data-sorttype="price"
@@ -272,12 +275,10 @@ function App(): JSX.Element {
                         alt=""
                       ></img>
                       <div className="market_listing_price_listings_block">
-                        <div className="market_listing_right_cell">
+                        <div className="market_listing_right_cell" style={{ width: '60px' }}>
                           <span className="market_table_value" onClick={favoritaItem(item)}>
                             <img src={item.Purchased ? svgStar : svgVoidStar} alt="" height="16" />
                           </span>
-                          <span className="market_arrow_down" style={{ display: 'none' }}></span>
-                          <span className="market_arrow_up" style={{ display: 'none' }}></span>
                         </div>
 
                         <div className="market_listing_right_cell market_listing_their_price">
