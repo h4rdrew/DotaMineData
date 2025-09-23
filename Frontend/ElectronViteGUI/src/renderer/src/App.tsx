@@ -8,6 +8,8 @@ import steamLogo from './assets/steam_logo.png'
 import dmarketLogo from './assets/dmarket_logo.png'
 // Importa o componente ExternalLink
 import ExternalLink from './components/ExternalLink'
+import svgStar from './assets/star.svg'
+import svgVoidStar from './assets/star-void.svg'
 
 function App(): JSX.Element {
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
@@ -150,6 +152,26 @@ function App(): JSX.Element {
     })
   }
 
+  function favoritaItem(
+    item: ItemMenu
+  ): import('react').MouseEventHandler<HTMLSpanElement> | undefined {
+    return async (e) => {
+      e.stopPropagation() // Impede que o clique no ícone afete o clique no item
+
+      const novoEstado = !item.Purchased // Inverte o estado atual
+
+      try {
+        await window.api.updateItemPurchased(item.ItemId, novoEstado) // Atualiza o banco de dados
+        // Atualiza o estado local para refletir a mudança
+        setItemMenu((prevItems) =>
+          prevItems.map((it) => (it.ItemId === item.ItemId ? { ...it, Purchased: novoEstado } : it))
+        )
+      } catch (error) {
+        console.error('Erro ao atualizar o estado de favorito:', error)
+      }
+    }
+  }
+
   return (
     <>
       {/*<div className="text">
@@ -191,6 +213,7 @@ function App(): JSX.Element {
             <div id="searchResultsRows">
               <div className="market_listing_table_header">
                 <div className="market_listing_price_listings_block">
+                  <div className="market_listing_right_cell">OWNED</div>
                   <div
                     className="market_listing_right_cell market_listing_their_price market_sortable_column"
                     data-sorttype="price"
@@ -249,6 +272,14 @@ function App(): JSX.Element {
                         alt=""
                       ></img>
                       <div className="market_listing_price_listings_block">
+                        <div className="market_listing_right_cell">
+                          <span className="market_table_value" onClick={favoritaItem(item)}>
+                            <img src={item.Purchased ? svgStar : svgVoidStar} alt="" height="16" />
+                          </span>
+                          <span className="market_arrow_down" style={{ display: 'none' }}></span>
+                          <span className="market_arrow_up" style={{ display: 'none' }}></span>
+                        </div>
+
                         <div className="market_listing_right_cell market_listing_their_price">
                           <span className="market_table_value normal_price">
                             <span

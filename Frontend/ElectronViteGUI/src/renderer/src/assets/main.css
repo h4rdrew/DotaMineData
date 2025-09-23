@@ -1215,7 +1215,7 @@ a.market_tab_well_tab_inactive:hover {
 #sideBar {
   float: right;
   width: 60%;
-  margin-right: 4%;
+  margin-right: 0%;
 }
 
 #sideBar > div {

@@ -62,6 +62,27 @@ electron.ipcMain.handle("getitems", async () => {
     db.close();
   });
 });
+electron.ipcMain.handle("updateItemPurchased", async (_event, itemId, purchased) => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READWRITE);
+    db.run(
+      `UPDATE Item
+       SET Purchased = ?
+       WHERE ItemId = ?`,
+      [purchased ? 1 : 0, itemId],
+      function(err) {
+        if (err) {
+          console.error("Erro ao atualizar o DB.");
+          reject(err);
+        } else {
+          console.log(`Sucesso em atualizar o DB. Linhas afetadas: ${this.changes}`);
+          resolve({ changes: this.changes });
+        }
+      }
+    );
+    db.close();
+  });
+});
 electron.ipcMain.handle("getItemData", async (_event, itemId) => {
   return new Promise((resolve, reject) => {
     const db = new Sqlite3.Database("E:\\dotaItemCollectData.db", Sqlite3.OPEN_READONLY);

@@ -2,6 +2,7 @@ export interface ItemDB {
   Id: number
   ItemId: number
   Name: string
+  Purchased: boolean
 }
 
 export interface DataDB {
@@ -32,7 +33,8 @@ export interface ItemDataDateNow {
 
 export interface ItemMenu {
   Id: number
-  ItemId: number
+  ItemId: number,
+  Purchased: boolean,
   Name: string
   Data: ItemDataDateNow[]
 }

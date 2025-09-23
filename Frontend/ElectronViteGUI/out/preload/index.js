@@ -4,7 +4,8 @@ const preload = require("@electron-toolkit/preload");
 const api = {
   getItems: () => electron.ipcRenderer.invoke("getitems"),
   getItemData: (itemId) => electron.ipcRenderer.invoke("getItemData", itemId),
-  getItemDataDateNow: () => electron.ipcRenderer.invoke("getItemDataDateNow")
+  getItemDataDateNow: () => electron.ipcRenderer.invoke("getItemDataDateNow"),
+  updateItemPurchased: (itemId, purchased) => electron.ipcRenderer.invoke("updateItemPurchased", itemId, purchased)
 };
 const eShell = {
   openExternal: (url) => electron.shell.openExternal(url)

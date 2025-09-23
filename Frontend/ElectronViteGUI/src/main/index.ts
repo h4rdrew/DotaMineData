@@ -92,6 +92,29 @@ ipcMain.handle('getitems', async () => {
   })
 })
 
+ipcMain.handle('updateItemPurchased', async (_event, itemId: number, purchased: boolean) => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READWRITE)
+
+    db.run(
+      `UPDATE Item
+       SET Purchased = ?
+       WHERE ItemId = ?`,
+      [purchased ? 1 : 0, itemId],
+      function (err) {
+        if (err) {
+          console.error('Erro ao atualizar o DB.')
+          reject(err)
+        } else {
+          console.log(`Sucesso em atualizar o DB. Linhas afetadas: ${this.changes}`)
+          resolve({ changes: this.changes })
+        }
+      }
+    )
+    db.close()
+  })
+})
+
 ipcMain.handle('getItemData', async (_event, itemId: number) => {
   return new Promise((resolve, reject) => {
     const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)

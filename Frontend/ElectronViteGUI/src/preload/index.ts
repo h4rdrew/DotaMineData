@@ -5,7 +5,9 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   getItems: (): Promise<unknown[]> => ipcRenderer.invoke('getitems'),
   getItemData: (itemId: number): Promise<unknown[]> => ipcRenderer.invoke('getItemData', itemId),
-  getItemDataDateNow: (): Promise<unknown[]> => ipcRenderer.invoke('getItemDataDateNow')
+  getItemDataDateNow: (): Promise<unknown[]> => ipcRenderer.invoke('getItemDataDateNow'),
+  updateItemPurchased: (itemId: number, purchased: boolean): Promise<{ changes: number }> =>
+    ipcRenderer.invoke('updateItemPurchased', itemId, purchased)
 }
 
 const eShell = {
