@@ -174,38 +174,6 @@ function App(): JSX.Element {
     }
   }
 
-  // Variavel que armazena o estado de exibição dos itens comprados
-  const [exibirItensComprados, setExibirItensComprados] = useState<boolean>(true)
-
-  function ocultaItensComprados(): void {
-    setExibirItensComprados(!exibirItensComprados)
-    if (exibirItensComprados) {
-      // Se estiver exibindo, oculta os itens comprados
-      const itensFiltrados = itemMenu.filter((item) => !item.Purchased)
-      setItemMenu(itensFiltrados)
-    } else {
-      // Se estiver ocultando, exibe todos os itens
-      const fetchItems = async (): Promise<void> => {
-        try {
-          const items = await window.api.getItems()
-          const datas = await window.api.getItemDataDateNow()
-          const itemsMenu = items.map((item: ItemDB) => {
-            const itemData = datas.filter((data: ItemDataDateNow) => data.ItemId === item.ItemId)
-            return {
-              ...item,
-              Data: itemData
-            }
-          }) as ItemMenu[]
-          setItemMenu(itemsMenu)
-        } catch (error) {
-          console.error('Erro ao buscar itens:', error)
-        }
-      }
-
-      fetchItems()
-    }
-  }
-
   // Variavel que armazena o estado de exibição dos itens comprados: só exibe os itens comprados, só os não comprados ou todos
   const [estadoExibicaoItensComprados, setEstadoExibicaoItensComprados] = useState<number>(2)
   // 0 = só os itens comprados
