@@ -3107,3 +3107,7 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
 .market_listing_row.market_recent_listing_row.market_listing_searchresult.selecionado {
   border: 1px solid #324965;
 }
+
+.pointer {
+  cursor: pointer;
+}

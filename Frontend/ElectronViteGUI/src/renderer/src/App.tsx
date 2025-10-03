@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import AirDatepicker from 'air-datepicker'
 import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
@@ -143,6 +143,8 @@ function App(): JSX.Element {
 
     const price = Data.find((data) => data.ServiceType === serviceType)?.Price || 0
 
+    if (price === 0) return '-'
+
     // Converte o valor numerico para monetário BRL
     return price.toLocaleString('pt-BR', {
       style: 'currency',
@@ -170,6 +172,140 @@ function App(): JSX.Element {
         console.error('Erro ao atualizar o estado de favorito:', error)
       }
     }
+  }
+
+  // Variavel que armazena o estado de exibição dos itens comprados
+  const [exibirItensComprados, setExibirItensComprados] = useState<boolean>(true)
+
+  function ocultaItensComprados(): void {
+    setExibirItensComprados(!exibirItensComprados)
+    if (exibirItensComprados) {
+      // Se estiver exibindo, oculta os itens comprados
+      const itensFiltrados = itemMenu.filter((item) => !item.Purchased)
+      setItemMenu(itensFiltrados)
+    } else {
+      // Se estiver ocultando, exibe todos os itens
+      const fetchItems = async (): Promise<void> => {
+        try {
+          const items = await window.api.getItems()
+          const datas = await window.api.getItemDataDateNow()
+          const itemsMenu = items.map((item: ItemDB) => {
+            const itemData = datas.filter((data: ItemDataDateNow) => data.ItemId === item.ItemId)
+            return {
+              ...item,
+              Data: itemData
+            }
+          }) as ItemMenu[]
+          setItemMenu(itemsMenu)
+        } catch (error) {
+          console.error('Erro ao buscar itens:', error)
+        }
+      }
+
+      fetchItems()
+    }
+  }
+
+  // Variavel que armazena o estado de exibição dos itens comprados: só exibe os itens comprados, só os não comprados ou todos
+  const [estadoExibicaoItensComprados, setEstadoExibicaoItensComprados] = useState<number>(2)
+  // 0 = só os itens comprados
+  // 1 = só os itens não comprados
+  // 2 = todos os itens
+
+  function alteraExibicaoItemOwned(): void {
+    const novoEstado = (estadoExibicaoItensComprados + 1) % 3 // Cicla entre 0, 1 e 2
+    setEstadoExibicaoItensComprados(novoEstado)
+
+    // let itensFiltrados: ItemMenu[] = []
+
+    switch (novoEstado) {
+      case 0: {
+        // Exibe só os itens comprados
+        const fetchItems = async (): Promise<void> => {
+          try {
+            const items = await window.api.getItems()
+            const datas = await window.api.getItemDataDateNow()
+            const itemsMenu = items
+              .map((item: ItemDB) => {
+                const itemData = datas.filter(
+                  (data: ItemDataDateNow) => data.ItemId === item.ItemId
+                )
+                return {
+                  ...item,
+                  Data: itemData
+                }
+              })
+              .filter((item: ItemMenu) => item.Purchased) // Filtra só os itens comprados
+            setItemMenu(itemsMenu as ItemMenu[])
+          } catch (error) {
+            console.error('Erro ao buscar itens:', error)
+          }
+        }
+
+        fetchItems()
+        break
+      }
+      case 1: {
+        // Exibe só os itens não comprados
+        const fetchItems = async (): Promise<void> => {
+          try {
+            const items = await window.api.getItems()
+            const datas = await window.api.getItemDataDateNow()
+            const itemsMenu = items
+              .map((item: ItemDB) => {
+                const itemData = datas.filter(
+                  (data: ItemDataDateNow) => data.ItemId === item.ItemId
+                )
+                return {
+                  ...item,
+                  Data: itemData
+                }
+              })
+              .filter((item: ItemMenu) => !item.Purchased) // Filtra só os itens não comprados
+            setItemMenu(itemsMenu as ItemMenu[])
+          } catch (error) {
+            console.error('Erro ao buscar itens:', error)
+          }
+        }
+
+        fetchItems()
+        break
+      }
+      case 2: {
+        // Exibe todos os itens
+        const fetchItems = async (): Promise<void> => {
+          try {
+            const items = await window.api.getItems()
+            const datas = await window.api.getItemDataDateNow()
+            const itemsMenu = items.map((item: ItemDB) => {
+              const itemData = datas.filter((data: ItemDataDateNow) => data.ItemId === item.ItemId)
+              return {
+                ...item,
+                Data: itemData
+              }
+            }) as ItemMenu[]
+            setItemMenu(itemsMenu)
+          } catch (error) {
+            console.error('Erro ao buscar itens:', error)
+          }
+        }
+
+        fetchItems()
+        break
+      }
+    }
+  }
+
+  function copyItemNameToClipboard(e: React.MouseEvent<HTMLSpanElement>, Name: string): void {
+    e.stopPropagation() // Impede que o clique no nome afete o clique no item
+    navigator.clipboard.writeText(Name).then(
+      () => {
+        console.log('Texto copiado para a área de transferência:', Name)
+      },
+      (err) => {
+        console.error('Erro ao copiar texto: ', err)
+      }
+    )
   }
 
   return (
@@ -212,7 +348,11 @@ function App(): JSX.Element {
           >
             <div id="searchResultsRows">
               <div className="market_listing_table_header">
-                <div className="market_listing_right_cell" style={{ width: '70px' }}>
+                <div
+                  className="market_listing_right_cell pointer"
+                  style={{ width: '70px' }}
+                  onClick={() => alteraExibicaoItemOwned()}
+                >
                   OWNED
                 </div>
 
@@ -341,7 +481,12 @@ function App(): JSX.Element {
               <img src={dmarketLogo} alt="Dmarket" height="20px" />
             </ExternalLink>
 
-            <span>{itemSelected.current}</span>
+            <span
+              className="pointer"
+              onClick={(e) => copyItemNameToClipboard(e, itemSelected.current)}
+            >
+              {itemSelected.current}
+            </span>
           </div>
 
           <ChartsTeste data={selectedItemData} labels={[]} />
