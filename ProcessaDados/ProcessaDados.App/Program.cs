@@ -14,7 +14,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
-Log.Information("Aplicação iniciada: v1.0.1");
+Log.Information("Aplicação iniciada: v1.0.2");
 
 const string filePath = "config.json";
 
@@ -121,7 +121,7 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
         var attempt = 0;
         var success = false;
 
-        while (attempt <= maxRetries && !success)
+        while (attempt < maxRetries && !success)
         {
             await Task.Delay(5000); // Delay de teste
             if (attempt > 0) await Task.Delay(2000);
@@ -170,10 +170,15 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
 
             attempt++;
 
-            if (attempt >= maxRetries)
+            if (attempt == maxRetries)
             {
                 Log.Error($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Máximo de tentativas atingido para o item {item.Name}");
             }
+        }
+
+        if (!success)
+        {
+            Log.Error($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Falha em buscar dados do item {item.Name}");
         }
     }
 
