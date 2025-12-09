@@ -14,7 +14,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
-Log.Information("Aplicação iniciada");
+Log.Information("Aplicação iniciada: v1.0.1");
 
 const string filePath = "config.json";
 
@@ -71,6 +71,8 @@ var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies);
 await Task.WhenAll(steamTask, dmarketTask);
 
 Log.Information("Captura de dados finalizada");
+
+Console.WriteLine("Pressione qualquer tecla para finalizar.");
 
 /// <summary>
 /// Método para capturar dados do site STEAM
@@ -134,7 +136,7 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
                 string htmlContent = await response.Content.ReadAsStringAsync();
 
                 // Expressão regular para encontrar os valores de `data-price`
-                var matches = Regex.Matches(htmlContent, @"data-price=""(\d+)""");
+                var matches = Rx_DataPrice().Matches(htmlContent);
 
                 // Obtém todos os valores numéricos encontrados, converte para inteiro e filtra os maiores que 0
                 var prices = matches
@@ -476,4 +478,10 @@ static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn, string api
         return decimal.Parse(result.USDBRL.bid, CultureInfo.InvariantCulture);
     }
     return 0;
+}
+
+partial class Program
+{
+    [GeneratedRegex(@"data-price=""(\d+)""")]
+    private static partial Regex Rx_DataPrice();
 }
