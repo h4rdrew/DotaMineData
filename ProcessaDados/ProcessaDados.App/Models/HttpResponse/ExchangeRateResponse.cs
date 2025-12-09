@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 namespace ProcessaDados.App.Models.HttpResponse
 {
 
-    public class ExchangeRateResponse
+    public record ExchangeRateResponse
     {
         public USDBRL USDBRL { get; set; }
     }
 
-    public class USDBRL
+    public record USDBRL
     {
         public string code { get; set; }
         public string codein { get; set; }

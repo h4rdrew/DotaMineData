@@ -1,13 +1,13 @@
 ﻿namespace ProcessaDados.App.Models.HttpResponse;
 
-public class DmarketResponse
+public record DmarketResponse
 {
     public Object[] objects { get; set; }
     public Total total { get; set; }
     public string cursor { get; set; }
 }
 
-public class Total
+public record Total
 {
     public int offers { get; set; }
     public int targets { get; set; }
@@ -16,7 +16,7 @@ public class Total
     public int closedTargets { get; set; }
 }
 
-public class Object
+public record Object
 {
     public string itemId { get; set; }
     public string type { get; set; }
@@ -52,38 +52,38 @@ public class Object
     public Favorite favorite { get; set; }
 }
 
-public class Ownerdetails
+public record Ownerdetails
 {
     public string id { get; set; }
     public string avatar { get; set; }
     public string wallet { get; set; }
 }
 
-public class Price
+public record Price
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Instantprice
+public record Instantprice
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Exchangeprice
+public record Exchangeprice
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Suggestedprice
+public record Suggestedprice
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Recommendedprice
+public record Recommendedprice
 {
     public Offerprice offerPrice { get; set; }
     public D3 d3 { get; set; }
@@ -91,31 +91,31 @@ public class Recommendedprice
     public D7plus d7Plus { get; set; }
 }
 
-public class Offerprice
+public record Offerprice
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class D3
+public record D3
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class D7
+public record D7
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class D7plus
+public record D7plus
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Extra
+public record Extra
 {
     public string nameColor { get; set; }
     public string backgroundColor { get; set; }
@@ -142,148 +142,148 @@ public class Extra
     public int overpriced { get; set; }
 }
 
-public class Gem
+public record Gem
 {
     public string name { get; set; }
     public string image { get; set; }
     public string type { get; set; }
 }
 
-public class Deliverystats
+public record Deliverystats
 {
     public string rate { get; set; }
     public string time { get; set; }
 }
 
-public class Fees
+public record Fees
 {
     public F2f f2f { get; set; }
     public Dmarket dmarket { get; set; }
 }
 
-public class F2f
+public record F2f
 {
     public Sell sell { get; set; }
     public Instantsell instantSell { get; set; }
     public Exchange exchange { get; set; }
 }
 
-public class Sell
+public record Sell
 {
     public Default _default { get; set; }
 }
 
-public class Default
+public record Default
 {
     public string percentage { get; set; }
     public Minfee minFee { get; set; }
 }
 
-public class Minfee
+public record Minfee
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Instantsell
+public record Instantsell
 {
     public Default1 _default { get; set; }
 }
 
-public class Default1
+public record Default1
 {
     public string percentage { get; set; }
     public Minfee1 minFee { get; set; }
 }
 
-public class Minfee1
+public record Minfee1
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Exchange
+public record Exchange
 {
     public Default2 _default { get; set; }
 }
 
-public class Default2
+public record Default2
 {
     public string percentage { get; set; }
     public Minfee2 minFee { get; set; }
 }
 
-public class Minfee2
+public record Minfee2
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Dmarket
+public record Dmarket
 {
     public Sell1 sell { get; set; }
     public Instantsell1 instantSell { get; set; }
     public Exchange1 exchange { get; set; }
 }
 
-public class Sell1
+public record Sell1
 {
     public Default3 _default { get; set; }
 }
 
-public class Default3
+public record Default3
 {
     public string percentage { get; set; }
     public Minfee3 minFee { get; set; }
 }
 
-public class Minfee3
+public record Minfee3
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Instantsell1
+public record Instantsell1
 {
     public Default4 _default { get; set; }
 }
 
-public class Default4
+public record Default4
 {
     public string percentage { get; set; }
     public Minfee4 minFee { get; set; }
 }
 
-public class Minfee4
+public record Minfee4
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Exchange1
+public record Exchange1
 {
     public Default5 _default { get; set; }
 }
 
-public class Default5
+public record Default5
 {
     public string percentage { get; set; }
     public Minfee5 minFee { get; set; }
 }
 
-public class Minfee5
+public record Minfee5
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Discountprice
+public record Discountprice
 {
     public string DMC { get; set; }
     public string USD { get; set; }
 }
 
-public class Favorite
+public record Favorite
 {
     public int count { get; set; }
     public bool forUser { get; set; }
