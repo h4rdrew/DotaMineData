@@ -14,7 +14,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
-Log.Information("Aplicação iniciada: v1.0.2");
+Log.Information("Aplicação iniciada: v1.0.3");
 
 const string filePath = "config.json";
 
@@ -48,7 +48,7 @@ Log.Information("Iniciando captura de dados...");
 
 //await capturaIdItens(cnn, config?.Items);
 
-var itens = cnn.GetAll<Item>();
+var itens = cnn.Query<Item>(@"SELECT * FROM Item ORDER BY Name");
 
 // utilizei o itens do DB pois é o mesmo do config.json e ficaria mais fácil de testar com os IDs
 // Para novos itens, gravar antes utilizando o método capturaIdItens, para que o ID seja salvo no DB
@@ -72,7 +72,46 @@ await Task.WhenAll(steamTask, dmarketTask);
 
 Log.Information("Captura de dados finalizada");
 
-Console.WriteLine("Pressione qualquer tecla para finalizar.");
+// NÃO TESTADO AINDA
+if (steamTask.Result.Count() > 0)
+{
+    Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Existe itens que não foram capturados ({steamTask.Result.Count()}). Deseja tentar novamente apenas para esses itens? (Y/N)");
+    string? input = Console.ReadLine()?.Trim().ToUpper();
+
+    if (input == "Y")
+    {
+        // Ação para SIM
+        Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Reexecutando apenas para itens não capturados...");
+
+        var steamRetryTask = steam(cnn, exchangeRate, steamTask.Result, config?.SteamCookies);
+
+        await Task.WhenAll(steamRetryTask);
+
+        if (steamRetryTask.Result.Count() > 0)
+        {
+            Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído, itens que não foram capturados:");
+            foreach (var item in steamRetryTask.Result)
+            {
+                Console.WriteLine($"[{item.Id}] {item.Name}");
+            }
+        } else
+        {
+            Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído. Todos os itens foram capturados.");
+        }
+    }
+    else if (input == "N")
+    {
+        // Ação para NÃO
+        Console.WriteLine("Pulando...");
+    }
+    else
+    {
+        Console.WriteLine("Entrada inválida, ignorando...");
+    }
+}
+
+Console.WriteLine("Pressione ENTER para sair...");
+Console.ReadLine();
 
 /// <summary>
 /// Método para capturar dados do site STEAM
@@ -82,7 +121,7 @@ Console.WriteLine("Pressione qualquer tecla para finalizar.");
 /// <param name="itens">Lista que contém os dados sobre os itens</param>
 /// <param name="steamCookies">Cookies para a requisição</param>
 /// <returns></returns>
-static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
+static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
 {
     // Número máximo de tentativas
     const int maxRetries = 10;
@@ -95,6 +134,8 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
     var cookieContainer = new CookieContainer();
     using var handler = new HttpClientHandler { CookieContainer = cookieContainer };
     using var client = new HttpClient(handler);
+
+    var itensUnsolved = new List<Item>();
 
     foreach (var cookie in steamCookies.Split(';'))
     {
@@ -173,18 +214,13 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
             if (attempt == maxRetries)
             {
                 Log.Error($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Máximo de tentativas atingido para o item {item.Name}");
-            }
-        }
 
-        if (!success)
-        {
-            Log.Error($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Falha em buscar dados do item {item.Name}");
+                itensUnsolved.Add(item);
+            }
         }
     }
 
     cnn.BulkInsert(bulk_Data);
-
-    Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Inseridos: {bulk_Data.Count} itens");
 
     cnn.Insert(new ItemCaptured()
     {
@@ -193,6 +229,15 @@ static async Task steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable
         DateTime = DateTime.Now,
         ExchangeRate = exchangeRate,
     });
+
+    Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Inseridos: {bulk_Data.Count} itens");
+
+    if (itensUnsolved.Count > 0)
+    {
+        Log.Warning($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Itens não capturados: {itensUnsolved.Count}");
+    }
+
+    return itensUnsolved;
 }
 
 /// <summary>
