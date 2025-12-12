@@ -72,43 +72,9 @@ await Task.WhenAll(steamTask, dmarketTask);
 
 Log.Information("Captura de dados finalizada");
 
-// NÃO TESTADO AINDA
 if (steamTask.Result.Count() > 0)
 {
-    Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Existe itens que não foram capturados ({steamTask.Result.Count()}). Deseja tentar novamente apenas para esses itens? (Y/N)");
-    string? input = Console.ReadLine()?.Trim().ToUpper();
-
-    if (input == "Y")
-    {
-        // Ação para SIM
-        Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Reexecutando apenas para itens não capturados...");
-
-        var steamRetryTask = steam(cnn, exchangeRate, steamTask.Result, config?.SteamCookies);
-
-        await Task.WhenAll(steamRetryTask);
-
-        if (steamRetryTask.Result.Count() > 0)
-        {
-            Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído, itens que não foram capturados:");
-            foreach (var item in steamRetryTask.Result)
-            {
-                Console.WriteLine($"[{item.Id}] {item.Name}");
-            }
-        }
-        else
-        {
-            Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído. Todos os itens foram capturados.");
-        }
-    }
-    else if (input == "N")
-    {
-        // Ação para NÃO
-        Console.WriteLine("Pulando...");
-    }
-    else
-    {
-        Console.WriteLine("Entrada inválida, ignorando...");
-    }
+    await steamRetry(config, cnn, exchangeRate, steamTask);
 }
 
 Console.WriteLine("Pressione ENTER para sair...");
@@ -349,7 +315,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
                 if (result == null) continue;
 
                 // Ignora qualquer item que comece, ou termine com o título da lista de exclusão
-                var itemResult = exceptionItens.Contains(item.ItemId) ? 
+                var itemResult = exceptionItens.Contains(item.ItemId) ?
                     result.objects.FirstOrDefault() :
                     result.objects.FirstOrDefault(o =>
                     !excludedTitles.Any(excluded =>
@@ -533,6 +499,44 @@ static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn, string api
         return decimal.Parse(result.USDBRL.bid, CultureInfo.InvariantCulture);
     }
     return 0;
+}
+
+static async Task steamRetry(ConfigJson? config, ISqliteConnection cnn, decimal exchangeRate, Task<List<Item>> steamTask)
+{
+    Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Existe itens que não foram capturados ({steamTask.Result.Count()}). Deseja tentar novamente apenas para esses itens? (Y/N)");
+    string? input = Console.ReadLine()?.Trim().ToUpper();
+
+    if (input == "Y")
+    {
+        // Ação para SIM
+        Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Reexecutando apenas para itens não capturados...");
+
+        var steamRetryTask = steam(cnn, exchangeRate, steamTask.Result, config?.SteamCookies);
+
+        await Task.WhenAll(steamRetryTask);
+
+        if (steamRetryTask.Result.Count() > 0)
+        {
+            Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído, itens que não foram capturados:");
+            foreach (var item in steamRetryTask.Result)
+            {
+                Console.WriteLine($"[{item.Id}] {item.Name}");
+            }
+        }
+        else
+        {
+            Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído. Todos os itens foram capturados.");
+        }
+    }
+    else if (input == "N")
+    {
+        // Ação para NÃO
+        Console.WriteLine("Pulando...");
+    }
+    else
+    {
+        Console.WriteLine("Entrada inválida, ignorando...");
+    }
 }
 
 partial class Program
