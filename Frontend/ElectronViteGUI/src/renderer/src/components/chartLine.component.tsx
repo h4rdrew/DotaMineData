@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import Chart, { ChartData, ChartOptions } from 'chart.js/auto'
-import { ChartsTesteProps, ItemHistoric } from '@renderer/interfaces'
+import Chart, { ChartData, ChartOptions, Color, ScriptableLineSegmentContext } from 'chart.js/auto'
+import { ChartsLineProps, ItemHistoric } from '@renderer/interfaces'
 
 function formatPrice(price: number): string {
   return `R$ ${price.toFixed(2).replace('.', ',')}`
@@ -42,20 +42,30 @@ function preprocessData(data: ItemHistoric[]): {
         data: steamPrices,
         borderColor: 'blue',
         backgroundColor: 'rgba(0, 0, 255, 0.5)',
-        tension: 0.1
+        tension: 0.1,
+        segment: {
+          // borderColor: (ctx) => down(ctx, 'rgb(192,75,75)'),
+          borderDash: (ctx) => skipped(ctx, [6, 6])
+        },
+        spanGaps: true
       },
       {
         label: 'DMarket',
         data: dmarketPrices,
         borderColor: 'green',
         backgroundColor: 'rgba(0, 255, 0, 0.5)',
-        tension: 0.1
+        tension: 0.1,
+        segment: {
+          // borderColor: (ctx) => down(ctx, 'rgb(192,75,75)'),
+          borderDash: (ctx) => skipped(ctx, [6, 6])
+        },
+        spanGaps: true
       }
     ]
   }
 }
 
-export function ChartsTeste({ data }: ChartsTesteProps): JSX.Element {
+export function ChartLine({ data }: ChartsLineProps): JSX.Element {
   const chartRef = useRef<HTMLCanvasElement | null>(null)
   const chartInstanceRef = useRef<Chart | null>(null)
 
@@ -99,4 +109,12 @@ export function ChartsTeste({ data }: ChartsTesteProps): JSX.Element {
   }, [data])
 
   return <canvas ref={chartRef} />
+}
+
+function skipped(ctx: ScriptableLineSegmentContext, value: number[]): number[] | undefined {
+  return ctx.p0.skip || ctx.p1.skip ? value : undefined
+}
+
+function down(ctx: ScriptableLineSegmentContext, value: string): Color | undefined {
+  return ctx.p0.parsed.y > ctx.p1.parsed.y ? value : undefined
 }

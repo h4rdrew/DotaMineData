@@ -3111,3 +3111,8 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
 .pointer {
   cursor: pointer;
 }
+
+.chart-pie-container {
+  width: 250px;
+  height: 250px;
+}

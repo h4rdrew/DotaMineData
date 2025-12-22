@@ -20,9 +20,13 @@ export interface ItemHistoric {
   DateTime: string
 }
 
-export interface ChartsTesteProps {
+export interface ChartsLineProps {
   labels: string[]
   data: ItemHistoric[] | null
+}
+
+export interface ChartsPieProps {
+  data: ItemDataDateNow[] | null
 }
 
 export interface ItemDataDateNow {
