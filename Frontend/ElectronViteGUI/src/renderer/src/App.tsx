@@ -3,13 +3,14 @@ import AirDatepicker from 'air-datepicker'
 import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
 import { ItemDataDateNow, ItemDB, ItemHistoric, ItemMenu } from './interfaces'
-import { ChartsTeste } from './components/chartsTeste.component'
+import { ChartLine } from './components/chartLine.component'
 import steamLogo from './assets/steam_logo.png'
 import dmarketLogo from './assets/dmarket_logo.png'
 // Importa o componente ExternalLink
 import ExternalLink from './components/ExternalLink'
 import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
+import { ChartPie } from './components/chartPie.component'
 
 function App(): JSX.Element {
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
@@ -276,6 +277,63 @@ function App(): JSX.Element {
     )
   }
 
+  function pegaPorcentualDMarket(item: ItemMenu): string {
+    const dmarketPrice = item.Data.filter((item) => item.ServiceType === 2).reduce(
+      (acc, item) => acc + item.Price,
+      0
+    )
+    const steamPrice = item.Data.filter((item) => item.ServiceType === 1).reduce(
+      (acc, item) => acc + item.Price,
+      0
+    )
+
+    const dmarketData = Math.round(((dmarketPrice - steamPrice) / steamPrice) * 100)
+
+    return dmarketData === Infinity ? '-' : `${dmarketData}%`
+  }
+
+  const porcentMenor = useRef<boolean>(false)
+  function alteraExibicaoItemPorcent(): void {
+    const novoEstado = !porcentMenor.current
+    porcentMenor.current = novoEstado
+
+    const itensOrdenados = [...itemMenu] // Cria uma cópia do array original
+
+    if (novoEstado) {
+      // Ordem crescente
+      itensOrdenados.sort((a, b) => {
+        const porcentA =
+          ((a.Data.find((data) => data.ServiceType === 2)?.Price || 0) -
+            (a.Data.find((data) => data.ServiceType === 1)?.Price || 0)) /
+          (a.Data.find((data) => data.ServiceType === 2)?.Price || 1)
+
+        const porcentB =
+          ((b.Data.find((data) => data.ServiceType === 2)?.Price || 0) -
+            (b.Data.find((data) => data.ServiceType === 1)?.Price || 0)) /
+          (b.Data.find((data) => data.ServiceType === 2)?.Price || 1)
+
+        return porcentA - porcentB
+      })
+    } else {
+      // Ordem decrescente
+      itensOrdenados.sort((a, b) => {
+        const porcentA =
+          ((a.Data.find((data) => data.ServiceType === 2)?.Price || 0) -
+            (a.Data.find((data) => data.ServiceType === 1)?.Price || 0)) /
+          (a.Data.find((data) => data.ServiceType === 2)?.Price || 1)
+
+        const porcentB =
+          ((b.Data.find((data) => data.ServiceType === 2)?.Price || 0) -
+            (b.Data.find((data) => data.ServiceType === 1)?.Price || 0)) /
+          (b.Data.find((data) => data.ServiceType === 2)?.Price || 1)
+
+        return porcentB - porcentA
+      })
+    }
+
+    setItemMenu(itensOrdenados) // Atualiza o estado com o array ordenado
+  }
+
   return (
     <>
       {/*<div className="text">
@@ -316,6 +374,14 @@ function App(): JSX.Element {
           >
             <div id="searchResultsRows">
               <div className="market_listing_table_header">
+                <div
+                  className="market_listing_right_cell pointer"
+                  style={{ width: '70px' }}
+                  onClick={() => alteraExibicaoItemPorcent()}
+                >
+                  %
+                </div>
+
                 <div
                   className="market_listing_right_cell pointer"
                   style={{ width: '70px' }}
@@ -384,6 +450,10 @@ function App(): JSX.Element {
                       ></img>
                       <div className="market_listing_price_listings_block">
                         <div className="market_listing_right_cell" style={{ width: '60px' }}>
+                          <span className="market_table_value">{pegaPorcentualDMarket(item)}</span>
+                        </div>
+
+                        <div className="market_listing_right_cell" style={{ width: '60px' }}>
                           <span className="market_table_value" onClick={favoritaItem(item)}>
                             <img src={item.Purchased ? svgStar : svgVoidStar} alt="" height="16" />
                           </span>
@@ -394,7 +464,7 @@ function App(): JSX.Element {
                             <span
                               className="normal_price"
                               // data-price={buscaPreco(item.ItemId, 'steam')}
-                              data-currency="7"
+                              // data-currency="7"
                             >
                               {pegaPreco(item.Data, 'steam')}
                             </span>
@@ -408,7 +478,7 @@ function App(): JSX.Element {
                             <span
                               className="normal_price"
                               // data-price={buscaPreco(item.ItemId, 'dmarket')}
-                              data-currency="7"
+                              // data-currency="7"
                             >
                               {pegaPreco(item.Data, 'dmarket')}
                             </span>
@@ -457,7 +527,13 @@ function App(): JSX.Element {
             </span>
           </div>
 
-          <ChartsTeste data={selectedItemData} labels={[]} />
+          <ChartLine data={selectedItemData} labels={[]} />
+
+          <div className="chart-pie-container">
+            <ChartPie
+              data={itemMenu.find((item) => item.Name === itemSelected.current)?.Data || null}
+            />
+          </div>
         </div>
       </div>
     </>
