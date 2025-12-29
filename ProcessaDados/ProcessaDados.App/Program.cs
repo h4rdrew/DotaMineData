@@ -282,7 +282,11 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
 /// <returns></returns>
 static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens)
 {
-    var excludedTitles = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
+    // Títulos que serão ignorados na captura
+    var strEnd = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
+    var strStart = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
+    var strContains = new[] { "Crownfall Sticker", "Style Unlock" };
+
     // Id do item que será tolerado mesmo que tenha o "excludedTitles",
     // exemplo: Blastmitt Berserker Bundle, Golden Flight of Epiphany ou Crimson Pique
     int[] exceptionItens = [23842, 12993, 7810, 7578];
@@ -318,10 +322,10 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
                 var itemResult = exceptionItens.Contains(item.ItemId) ?
                     result.objects.FirstOrDefault() :
                     result.objects.FirstOrDefault(o =>
-                    !excludedTitles.Any(excluded =>
-                        o.title.StartsWith(excluded, StringComparison.OrdinalIgnoreCase) ||
-                        o.title.EndsWith(excluded, StringComparison.OrdinalIgnoreCase)
-                    ));
+                        !strStart.Any(excluded => o.title.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)) &&
+                        !strEnd.Any(excluded => o.title.EndsWith(excluded, StringComparison.OrdinalIgnoreCase)) &&
+                        !strContains.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase))
+                    );
 
                 // Ignora qualquer item com o título que está na lista de exclusão
                 //var itemResult = result.objects.FirstOrDefault(o => !excludedTitles.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase)));
