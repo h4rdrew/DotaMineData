@@ -164,8 +164,8 @@ ipcMain.handle('getItemDataDateNow', async () => {
     FROM CollectData cd
     JOIN ItemCaptured ic
         ON cd.CaptureId = ic.CaptureId
-    WHERE ic.DateTime != 0
-      AND ic.ServiceType IN (1, 2)
+    WHERE ic.ServiceType IN (1, 2)
+      AND DATE(ic.DateTime) = DATE('now', 'localtime')
 )
 SELECT ServiceType, Price, ItemId
 FROM UltimoCapture
