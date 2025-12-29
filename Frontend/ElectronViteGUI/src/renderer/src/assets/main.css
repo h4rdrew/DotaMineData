@@ -1219,7 +1219,7 @@ a.market_tab_well_tab_inactive:hover {
 }
 
 #sideBar > div {
-  margin-top: 2em;
+  /* margin-top: 2em; */
   /* width: 295px; */
 }
 
@@ -3115,4 +3115,67 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
 .chart-pie-container {
   width: 250px;
   height: 250px;
+}
+
+/* Style the tab */
+.tab {
+  display: flex;
+  justify-content: space-around;
+  overflow: hidden;
+  max-width: 252px;
+  width: 100%;
+}
+
+/* Style the link(a) inside the tab */
+.tab a {
+  background-color: inherit;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  transition: color 0.2s;
+  display: block;
+  font-size: 14px;
+  line-height: 17px;
+  font-weight: 700;
+  color: #a2a0ba;
+  text-align: center;
+  text-decoration: none;
+  background: 0 0;
+}
+
+/* Change background color of link(a) on hover */
+.tab a:hover {
+  color: #a2a0ba;
+}
+
+/* Create an active/current link(a) class */
+.tab a.active {
+  color: #ddd;
+}
+
+/* Style the tab content */
+.tabcontent {
+  display: flex;
+  gap: 70px;
+  padding: 6px 15px;
+  border-top: none;
+}
+
+.info-price-label {
+  display: block;
+  width: 100%;
+  font-size: 13px;
+  line-height: 15px;
+  margin-bottom: 0;
+  color: #dcdce5;
+}
+
+.price-tab {
+  font-size: 24px;
+  line-height: 29px;
+  font-family: 'Exo 2', Lato, Lato2, sans-serif;
+  font-weight: 600;
+  white-space: nowrap;
+  text-transform: none !important;
 }

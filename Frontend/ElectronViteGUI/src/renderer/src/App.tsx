@@ -19,6 +19,7 @@ function App(): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
   const itemSelected = useRef<string>('')
+  const itemSelectedId = useRef<number>(0)
 
   useEffect(() => {
     const fetchItems = async (): Promise<void> => {
@@ -46,6 +47,7 @@ function App(): JSX.Element {
       const data = await window.api.getItemData(item.ItemId)
       setSelectedItemData(data as unknown as ItemHistoric[])
       itemSelected.current = item.Name
+      itemSelectedId.current = item.ItemId
       console.log(data)
     } catch (error) {
       console.error(`Erro ao buscar dados do item ${item.ItemId} | ${item.Name}:`, error)
@@ -139,8 +141,8 @@ function App(): JSX.Element {
     element.classList.add('selecionado')
   }
 
-  function pegaPreco(Data: ItemDataDateNow[], arg1: string): import('react').ReactNode {
-    const serviceType = arg1 === 'steam' ? 2 : 1
+  function pegaPreco(Data: ItemDataDateNow[], serviceStr: string): string {
+    const serviceType = serviceStr === 'steam' ? 1 : 2
 
     const price = Data.find((data) => data.ServiceType === serviceType)?.Price || 0
 
@@ -334,6 +336,26 @@ function App(): JSX.Element {
     setItemMenu(itensOrdenados) // Atualiza o estado com o array ordenado
   }
 
+  function openTab(e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, tabNumber: number): void {
+    const tabcontent = document.getElementsByClassName('tabcontent')
+
+    for (let i = 0; i < tabcontent.length; i++) {
+      tabcontent[i].setAttribute('style', 'display: none')
+    }
+
+    const tablinks = document.getElementsByClassName('tablinks')
+
+    for (let i = 0; i < tablinks.length; i++) {
+      tablinks[i].className = tablinks[i].className.replace(' active', '')
+    }
+
+    const tabId = `tab-${tabNumber}`
+
+    document.getElementById(tabId)?.setAttribute('style', 'display: flex')
+
+    e.currentTarget.className += ' active'
+  }
+
   return (
     <>
       {/*<div className="text">
@@ -394,19 +416,16 @@ function App(): JSX.Element {
                   <div
                     className="market_listing_right_cell market_listing_their_price market_sortable_column"
                     data-sorttype="price"
-                    onClick={() => filtraDadosItens('p2_price_asc')}
+                    onClick={() => filtraDadosItens('p1_price_asc')}
                   >
-                    DMARKET
-                    <span className="market_sort_arrow" style={{ display: 'none' }}>
-                      ▲
-                    </span>
+                    STEAM
                   </div>
                   <div
                     className="market_listing_right_cell market_listing_num_listings market_sortable_column"
                     data-sorttype="price"
-                    onClick={() => filtraDadosItens('p1_price_asc')}
+                    onClick={() => filtraDadosItens('p2_price_asc')}
                   >
-                    STEAM<span className="market_sort_arrow" style={{ display: 'none' }}></span>
+                    DMARKET
                   </div>
                   {/* <div
                     className="market_listing_right_cell market_listing_price_listings_combined market_sortable_column"
@@ -420,7 +439,7 @@ function App(): JSX.Element {
                   data-sorttype="name"
                   onClick={() => filtraDadosItens('p1_name_asc')}
                 >
-                  <span className="market_listing_header_namespacer"></span>NOME
+                  <span className="market_listing_header_namespacer"></span>NAME
                   <span className="market_sort_arrow" style={{ display: 'none' }}></span>
                 </div>
               </div>
@@ -525,15 +544,56 @@ function App(): JSX.Element {
             >
               {itemSelected.current}
             </span>
+
+            <small>({itemSelectedId.current})</small>
           </div>
 
-          <ChartLine data={selectedItemData} labels={[]} />
-
-          <div className="chart-pie-container">
+          {/* <div className="chart-pie-container">
             <ChartPie
               data={itemMenu.find((item) => item.Name === itemSelected.current)?.Data || null}
             />
+          </div> */}
+
+          <div className="tab">
+            <a className="tablinks" onClick={(e) => openTab(e, 0)}>
+              Current Prices
+            </a>
+            <a className="tablinks" onClick={(e) => openTab(e, 1)}>
+              Historical Low
+            </a>
           </div>
+
+          <div id="tab-0" className="tabcontent">
+            <div className="tab-content-cotainer">
+              <span className="info-price-label">Steam:</span>
+              <span className="price-tab">
+                {selectedItemData
+                  ? pegaPreco(
+                      itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
+                      'steam'
+                    )
+                  : 'R$ 0,00'}
+              </span>
+            </div>
+
+            <div className="tab-content-cotainer">
+              <span className="info-price-label">DMarket:</span>
+              <span className="price-tab">
+                {selectedItemData
+                  ? pegaPreco(
+                      itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
+                      'dmarket'
+                    )
+                  : 'R$ 0,00'}
+              </span>
+            </div>
+          </div>
+
+          <div id="tab-1" className="tabcontent">
+            Historical Low Content
+          </div>
+
+          <ChartLine data={selectedItemData} labels={[]} />
         </div>
       </div>
     </>

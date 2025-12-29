@@ -37,8 +37,8 @@ export interface ItemDataDateNow {
 
 export interface ItemMenu {
   Id: number
-  ItemId: number,
-  Purchased: boolean,
+  ItemId: number
+  Purchased: boolean
   Name: string
   Data: ItemDataDateNow[]
 }
