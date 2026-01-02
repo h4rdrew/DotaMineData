@@ -75,6 +75,65 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
+ipcMain.handle('saveBase64Image', async (_event, base64: string, fileName: string) => {
+  try {
+    // Remove header "data:image/png;base64,"
+    const base64Data = base64.replace(/^data:image\/\w+;base64,/, '')
+
+    const buffer = Buffer.from(base64Data, 'base64')
+
+    const dir = 'E:\\DotaMine\\img'
+    const filePath = path.join(dir, fileName)
+
+    // Garante que a pasta existe
+    fs.mkdirSync(dir, { recursive: true })
+
+    fs.writeFileSync(filePath, buffer)
+
+    return { success: true, path: filePath }
+  } catch (error) {
+    console.error(error)
+    throw error
+  }
+})
+
+ipcMain.handle('fetchItemData', async (_event, itemURL: string) => {
+  // Apenas faz o fetch para a URL, exemplo: https://liquipedia.net/dota2/Item_Name
+  try {
+    const response = await fetch(itemURL)
+    const text = await response.text()
+
+    // Nome do item, exemplo: <span class="mw-page-title-main">White Sentry</span>
+    const nameMatch = text.match(/<span class="mw-page-title-main">(.*?)<\/span>/)
+    const itemName = nameMatch ? nameMatch[1] : 'Unknown'
+
+    // ID do item, exemplo: <div class="infobox-image-text">ID: 6784</div>
+    const idMatch = text.match(/<div class="infobox-image-text">ID:\s*(\d+)<\/div>/)
+    const itemId = idMatch ? parseInt(idMatch[1], 10) : -1
+
+    // Monta a URL da imagem do item, exemplo do url: https://liquipedia.net/commons/images/6/6f/Cosmetic_icon_White_Sentry.png
+    // Só vai alterar a partir de https://liquipedia.net/commons/images/...
+    // exmplo do elemento: <img alt="" src="/commons/images/6/6f/Cosmetic_icon_White_Sentry.png" decoding="async" width="600" height="400">
+    const imageMatch = text.match(/src="(\/commons\/images\/[a-zA-Z0-9/_%-]+\.png)"/)
+    const imageUrl = imageMatch ? `https://liquipedia.net${imageMatch[1]}` : ''
+
+    // Faz o download da imagem e converte para base64
+    let imageB64 = ''
+    if (imageUrl) {
+      const imageResponse = await fetch(imageUrl)
+      const imageBuffer = await imageResponse.arrayBuffer()
+      const base64String = Buffer.from(imageBuffer).toString('base64')
+      const contentType = imageResponse.headers.get('content-type') || 'image/png'
+      imageB64 = `data:${contentType};base64,${base64String}`
+    }
+
+    return { id: itemId, name: itemName, imageB64: imageB64 }
+  } catch (error) {
+    console.error('Error fetching item data:', error)
+    throw error
+  }
+})
+
 ipcMain.handle('getitems', async () => {
   return new Promise((resolve, reject) => {
     const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
@@ -107,6 +166,27 @@ ipcMain.handle('updateItemPurchased', async (_event, itemId: number, purchased: 
           reject(err)
         } else {
           console.log(`Sucesso em atualizar o DB. Linhas afetadas: ${this.changes}`)
+          resolve({ changes: this.changes })
+        }
+      }
+    )
+    db.close()
+  })
+})
+
+ipcMain.handle('addNewItem', async (_event, itemId: number, itemName: string, owned: boolean) => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READWRITE)
+
+    db.run(
+      `INSERT INTO Item (ItemId, Name, Purchased) VALUES (?, ?, ?)`,
+      [itemId, itemName, owned ? 1 : 0],
+      function (err) {
+        if (err) {
+          console.error('Erro ao inserir no DB.')
+          reject(err)
+        } else {
+          console.log(`Sucesso em inserir no DB. Linhas afetadas: ${this.changes}`)
           resolve({ changes: this.changes })
         }
       }

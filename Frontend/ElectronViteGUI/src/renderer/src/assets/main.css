@@ -3060,16 +3060,22 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
   }
 }
 
-.container {
+.app-container {
+  /* height: 100vh;
+  display: grid; */
+}
+
+.app-content {
   display: flex;
   height: 100vh;
 }
+
 .coluna-esquerda {
   /* width: 50%; */
   overflow-y: auto;
   /* background-color: #f0f0f0;
   padding: 16px; */
-  height: calc(100vh - 50px);
+  height: calc(100vh - 87px);
 }
 .coluna-direita {
   /* width: 50%; */
@@ -3179,3 +3185,18 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
   white-space: nowrap;
   text-transform: none !important;
 }
+
+/* .fab-button {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  bottom: 40px;
+  right: 40px;
+  background-color: #0c6cf2;
+  color: #fff;
+  border-radius: 50px;
+  text-align: center;
+  box-shadow: 2px 2px 3px #999;
+  cursor: pointer;
+  z-index: 100;
+} */

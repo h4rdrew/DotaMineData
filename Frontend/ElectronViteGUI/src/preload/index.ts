@@ -7,7 +7,16 @@ const api = {
   getItemData: (itemId: number): Promise<unknown[]> => ipcRenderer.invoke('getItemData', itemId),
   getItemDataDateNow: (): Promise<unknown[]> => ipcRenderer.invoke('getItemDataDateNow'),
   updateItemPurchased: (itemId: number, purchased: boolean): Promise<{ changes: number }> =>
-    ipcRenderer.invoke('updateItemPurchased', itemId, purchased)
+    ipcRenderer.invoke('updateItemPurchased', itemId, purchased),
+  addNewItem: (itemId: number, itemName: string, owned: boolean): Promise<{ changes: number }> =>
+    ipcRenderer.invoke('addNewItem', itemId, itemName, owned),
+  fetchItemData: (itemURL: string): Promise<{ id: number; name: string; imageB64: string }> =>
+    ipcRenderer.invoke('fetchItemData', itemURL),
+  saveBase64Image: (
+    base64: string,
+    fileName: string
+  ): Promise<{ success: boolean; path: string }> =>
+    ipcRenderer.invoke('saveBase64Image', base64, fileName)
 }
 
 const eShell = {
