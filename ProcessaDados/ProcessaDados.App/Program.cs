@@ -289,7 +289,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
 
     // Id do item que será tolerado mesmo que tenha o "excludedTitles",
     // exemplo: Blastmitt Berserker Bundle, Golden Flight of Epiphany ou Crimson Pique
-    int[] exceptionItens = [23842, 12993, 7810, 7578];
+    int[] exceptionItens = [23842, 12993, 7810, 7578, 35387];
 
     HttpClient _httpClient = new();
 
