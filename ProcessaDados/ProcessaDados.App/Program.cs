@@ -294,8 +294,9 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
     HttpClient _httpClient = new();
 
     // URL base e parâmetros fixos
-    const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items?side=market&orderBy=price&orderDir=asc&title=";
-    const string paramsUrl = "&priceFrom=0&priceTo=0&treeFilters=&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=20&currency=USD&platform=browser&isLoggedIn=false";
+    const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items";
+    const string params1 = "?side=market&orderBy=price&orderDir=asc&title=";
+    const string params2 = "&priceFrom=0&priceTo=0&treeFilters=rarity%5B%5D=immortal&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=100&currency=USD&platform=browser&isLoggedIn=true";
 
     var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
@@ -303,8 +304,8 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
     foreach (var item in itens)
     {
         // Encode do nome do item para URL
-        string encodedItem = Uri.EscapeDataString(item.Name);
-        string fullUrl = $"{apiUrl}{encodedItem}{paramsUrl}";
+        string encodedItemName = Uri.EscapeDataString(item.Name);
+        string fullUrl = $"{apiUrl}{params1}{encodedItemName}{params2}";
 
         try
         {
