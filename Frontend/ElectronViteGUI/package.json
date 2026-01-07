@@ -23,15 +23,23 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.6",
+    "@mui/material": "^7.3.6",
+    "@mui/x-date-pickers": "^8.23.0",
     "air-datepicker": "^3.5.3",
     "chart.js": "^4.4.8",
+    "dayjs": "^1.11.19",
     "electron-updater": "^6.3.9",
+    "jsdom": "^27.4.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^22.13.4",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

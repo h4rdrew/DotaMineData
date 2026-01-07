@@ -14,7 +14,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
-Log.Information("Aplicação iniciada: v1.0.5");
+Log.Information("Aplicação iniciada: v1.0.7");
 
 const string filePath = "config.json";
 
@@ -56,7 +56,7 @@ var itens = cnn.Query<Item>(@"SELECT * FROM Item ORDER BY Name");
 //await capturaImagensItens(cnn, config?.ImgPath, itens);
 
 Log.Information("Iniciando captura do valor do dolar");
-var exchangeRate = await capturaExchangeRate(cnn, config?.AwesomeApiKey);
+var exchangeRate = await capturaExchangeRate(cnn, config?.AwesomeApiKey ?? string.Empty);
 Log.Information($"Cotação do dólar: {exchangeRate}");
 
 if (exchangeRate == 0)
@@ -66,7 +66,7 @@ if (exchangeRate == 0)
 }
 
 var dmarketTask = dmarket(cnn, exchangeRate, itens);
-var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies);
+var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies ?? string.Empty);
 
 await Task.WhenAll(steamTask, dmarketTask);
 
@@ -91,7 +91,8 @@ Console.ReadLine();
 static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
 {
     // Número máximo de tentativas
-    const int maxRetries = 10;
+    // se a steam estiver chata, aumentar esse número para 10
+    const int maxRetries = 3;
 
     var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
@@ -131,7 +132,7 @@ static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate,
 
         while (attempt < maxRetries && !success)
         {
-            await Task.Delay(5000); // Delay de teste
+            //await Task.Delay(5000); // Delay caso a steam esteja chata
             if (attempt > 0) await Task.Delay(2000);
 
             try
@@ -283,19 +284,20 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
 static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens)
 {
     // Títulos que serão ignorados na captura
+    var strStart = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson", "Crownfall" };
     var strEnd = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
-    var strStart = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
     var strContains = new[] { "Crownfall Sticker", "Style Unlock" };
 
     // Id do item que será tolerado mesmo que tenha o "excludedTitles",
     // exemplo: Blastmitt Berserker Bundle, Golden Flight of Epiphany ou Crimson Pique
-    int[] exceptionItens = [23842, 12993, 7810, 7578];
+    int[] exceptionItens = [23842, 12993, 7810, 7578, 35387];
 
     HttpClient _httpClient = new();
 
     // URL base e parâmetros fixos
-    const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items?side=market&orderBy=price&orderDir=asc&title=";
-    const string paramsUrl = "&priceFrom=0&priceTo=0&treeFilters=&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=20&currency=USD&platform=browser&isLoggedIn=false";
+    const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items";
+    const string params1 = "?side=market&orderBy=price&orderDir=asc&title=";
+    const string params2 = "&priceFrom=0&priceTo=0&treeFilters=rarity%5B%5D=immortal&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=100&currency=USD&platform=browser&isLoggedIn=true";
 
     var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
@@ -303,8 +305,8 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
     foreach (var item in itens)
     {
         // Encode do nome do item para URL
-        string encodedItem = Uri.EscapeDataString(item.Name);
-        string fullUrl = $"{apiUrl}{encodedItem}{paramsUrl}";
+        string encodedItemName = Uri.EscapeDataString(item.Name);
+        string fullUrl = $"{apiUrl}{params1}{encodedItemName}{params2}";
 
         try
         {
