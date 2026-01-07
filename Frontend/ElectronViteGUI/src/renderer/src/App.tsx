@@ -12,7 +12,9 @@ import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
 import { ChartPie } from './components/chartPie.component'
 import DialogRegisterItem from './components/dialogRegisterItem.component'
-import { Button, Menu, MenuItem } from '@mui/material'
+import { AppBar, Box, Button, IconButton, Menu, MenuItem, Toolbar, Typography } from '@mui/material'
+import BasicDatePicker from './components/basicDatePicker.component'
+import dayjs, { Dayjs } from 'dayjs'
 
 function App(): JSX.Element {
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
@@ -355,69 +357,75 @@ function App(): JSX.Element {
     setAnchorEl(null)
   }
 
+  function buscaDadosPorData(newValue: dayjs.Dayjs | null): void {
+    if (!newValue) {
+      return
+    }
+
+    const dataSelecionada = newValue.format('YYYY-MM-DD')
+
+    const fetchItemsByDate = async (): Promise<void> => {
+      try {
+        const items = await window.api.getItems()
+        const datas = await window.api.getItemDataByDate(dataSelecionada)
+        const itemsMenu = items.map((item: ItemDB) => {
+          const itemData = datas.filter((data: ItemDataDateNow) => data.ItemId === item.ItemId)
+          return {
+            ...item,
+            Data: itemData
+          }
+        }) as ItemMenu[]
+        setItemMenu(itemsMenu)
+      } catch (error) {
+        console.error('Erro ao buscar itens pela data:', error)
+      }
+    }
+
+    fetchItemsByDate()
+  }
+
   return (
     <>
-      {/*<div className="text">
-        Exibir lista de <span className="ts">itens</span>
-      </div>
-      <input ref={inputRef} type="text" placeholder="Selecione uma data" />
-
-       <select>
-        <option selected value="0">
-          Nome
-        </option>
-        <option value="1">Preço menor: DMarket</option>
-        <option value="2">Preço menor: Steam</option>
-        <option value="3">Preço maior: DMarket</option>
-        <option value="3">Preço maior: Steam</option>
-      </select>
-
-       <div className="mainFlexBox">
-        <ul className="lista-itens">
-          {items.map((item) => (
-            <li className="li-item" key={item.ItemId} onClick={() => buscaDadosItem(item)}>
-              {item.Name}
-            </li>
-          ))}
-        </ul>
-        <div className="charts-container">
-          <div className="item-selected">{itemSelected.current}</div>
-          <ChartsTeste data={selectedItemData} labels={[]} />
-        </div>
-      </div> */}
-
       <div className="app-container">
-        <div className="menu-bar">
-          <Button
-            id="basic-button"
-            aria-controls={open ? 'basic-menu' : undefined}
-            aria-haspopup="true"
-            aria-expanded={open ? 'true' : undefined}
-            onClick={handleClick}
-          >
-            Options
-          </Button>
-          <Menu
-            id="basic-menu"
-            anchorEl={anchorEl}
-            open={open}
-            onClose={handleClose}
-            slotProps={{
-              list: {
-                'aria-labelledby': 'basic-button'
-              }
-            }}
-          >
-            <MenuItem
-              onClick={() => {
-                setOpenDialog(true)
-                handleClose()
-              }}
-            >
-              New item
-            </MenuItem>
-          </Menu>
-        </div>
+        <Box sx={{ flexGrow: 1 }}>
+          <AppBar position="static" className="appbar-custom">
+            <Toolbar>
+              <Button
+                color="inherit"
+                id="basic-button"
+                aria-controls={open ? 'basic-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={open ? 'true' : undefined}
+                onClick={handleClick}
+              >
+                Options
+              </Button>
+              <Menu
+                id="basic-menu"
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleClose}
+                slotProps={{
+                  list: {
+                    'aria-labelledby': 'basic-button'
+                  }
+                }}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setOpenDialog(true)
+                    handleClose()
+                  }}
+                >
+                  New item
+                </MenuItem>
+              </Menu>
+              <BasicDatePicker
+                onChange={(newValue) => buscaDadosPorData(newValue)}
+              ></BasicDatePicker>
+            </Toolbar>
+          </AppBar>
+        </Box>
         <div className="app-content">
           {/* ITENS */}
           <div id="searchResults" className="market_page_left">

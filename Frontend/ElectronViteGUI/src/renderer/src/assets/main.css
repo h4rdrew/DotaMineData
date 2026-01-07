@@ -3186,17 +3186,6 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
   text-transform: none !important;
 }
 
-/* .fab-button {
-  position: fixed;
-  width: 56px;
-  height: 56px;
-  bottom: 40px;
-  right: 40px;
-  background-color: #0c6cf2;
-  color: #fff;
-  border-radius: 50px;
-  text-align: center;
-  box-shadow: 2px 2px 3px #999;
-  cursor: pointer;
-  z-index: 100;
-} */
+.appbar-custom {
+  background-color: #1b1b1b;
+}
