@@ -14,7 +14,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
-Log.Information("Aplicação iniciada: v1.0.6");
+Log.Information("Aplicação iniciada: v1.0.7");
 
 const string filePath = "config.json";
 
@@ -56,7 +56,7 @@ var itens = cnn.Query<Item>(@"SELECT * FROM Item ORDER BY Name");
 //await capturaImagensItens(cnn, config?.ImgPath, itens);
 
 Log.Information("Iniciando captura do valor do dolar");
-var exchangeRate = await capturaExchangeRate(cnn, config?.AwesomeApiKey);
+var exchangeRate = await capturaExchangeRate(cnn, config?.AwesomeApiKey ?? string.Empty);
 Log.Information($"Cotação do dólar: {exchangeRate}");
 
 if (exchangeRate == 0)
@@ -66,7 +66,7 @@ if (exchangeRate == 0)
 }
 
 var dmarketTask = dmarket(cnn, exchangeRate, itens);
-var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies);
+var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies ?? string.Empty);
 
 await Task.WhenAll(steamTask, dmarketTask);
 
@@ -91,7 +91,8 @@ Console.ReadLine();
 static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
 {
     // Número máximo de tentativas
-    const int maxRetries = 10;
+    // se a steam estiver chata, aumentar esse número para 10
+    const int maxRetries = 3;
 
     var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
@@ -131,7 +132,7 @@ static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate,
 
         while (attempt < maxRetries && !success)
         {
-            await Task.Delay(5000); // Delay de teste
+            //await Task.Delay(5000); // Delay caso a steam esteja chata
             if (attempt > 0) await Task.Delay(2000);
 
             try
@@ -283,8 +284,8 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
 static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens)
 {
     // Títulos que serão ignorados na captura
+    var strStart = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson", "Crownfall" };
     var strEnd = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
-    var strStart = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
     var strContains = new[] { "Crownfall Sticker", "Style Unlock" };
 
     // Id do item que será tolerado mesmo que tenha o "excludedTitles",
