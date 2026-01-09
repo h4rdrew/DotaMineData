@@ -283,21 +283,12 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
 /// <returns></returns>
 static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens)
 {
-    // Títulos que serão ignorados na captura
-    var strStart = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson", "Crownfall" };
-    var strEnd = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
-    var strContains = new[] { "Crownfall Sticker", "Style Unlock" };
-
-    // Id do item que será tolerado mesmo que tenha o "excludedTitles",
-    // exemplo: Blastmitt Berserker Bundle, Golden Flight of Epiphany ou Crimson Pique
-    int[] exceptionItens = [23842, 12993, 7810, 7578, 35387];
-
     HttpClient _httpClient = new();
 
     // URL base e parâmetros fixos
     const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items";
     const string params1 = "?side=market&orderBy=price&orderDir=asc&title=";
-    const string params2 = "&priceFrom=0&priceTo=0&treeFilters=rarity%5B%5D=immortal&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=100&currency=USD&platform=browser&isLoggedIn=true";
+    const string params2 = "&priceFrom=0&priceTo=0&treeFilters=rarity%5B%5D=arcana,rarity%5B%5D=immortal&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=100&currency=USD&platform=browser&isLoggedIn=true";
 
     var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
@@ -320,14 +311,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
                 var result = JsonConvert.DeserializeObject<DmarketResponse>(responseData);
                 if (result == null) continue;
 
-                // Ignora qualquer item que comece, ou termine com o título da lista de exclusão
-                var itemResult = exceptionItens.Contains(item.ItemId) ?
-                    result.objects.FirstOrDefault() :
-                    result.objects.FirstOrDefault(o =>
-                        !strStart.Any(excluded => o.title.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)) &&
-                        !strEnd.Any(excluded => o.title.EndsWith(excluded, StringComparison.OrdinalIgnoreCase)) &&
-                        !strContains.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase))
-                    );
+                var itemResult = getItemByEquality(item, result);
 
                 // Ignora qualquer item com o título que está na lista de exclusão
                 //var itemResult = result.objects.FirstOrDefault(o => !excludedTitles.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase)));
@@ -371,6 +355,74 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
         DateTime = DateTime.Now,
         ExchangeRate = exchangeRate,
     });
+}
+
+static ProcessaDados.App.Models.HttpResponse.Object? getItemByEquality(Item item, DmarketResponse result)
+{
+    var itemQuality = new[] {
+        "Normal", "Genuine", "Elder", "Unusual", "Self-Made", "Inscribed", "Cursed", "Heroic", "Favored",
+        "Ascendant", "Autographed", "Legacy", "Exalted", "Frozen", "Corrupted", "Auspicious", "Infused"
+    };
+
+    // Pega o primeiro resultado de "result" onde objeto.title tenha itemQuality no COMEÇO + item.Name
+    // ou apenas item.Name caso não contenha essa concatenação.
+    // Ex: item.Name == "Basher of Mage Skulls", se tiver "Inscribed Offhand Basher of Mage Skulls" não é
+    // o mesmo item, teria que ser "Inscribed Basher of Mage Skulls", pois "Inscribed" faz parte do itemQuality
+    // e "Basher of Mage Skulls" é o nome exato, e não "Offhand Basher of Mage Skulls"
+
+    // Problemas evitados: 
+    // Mesmo item, porém Crimson (exceto a do Lion)
+    // Itens de arma duas mãos, que só muda se offhand
+    // Itens que não são do herói
+    return result.objects.FirstOrDefault(obj =>
+    {
+        if (string.IsNullOrWhiteSpace(obj.title))
+            return false;
+
+        // Caso 1: título é exatamente o nome do item
+        if (string.Equals(obj.title, item.Name, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Caso 2: título começa com "<Quality> " + item.Name
+        foreach (var quality in itemQuality)
+        {
+            var expected = $"{quality} {item.Name}";
+
+            if (string.Equals(obj.title, expected, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    });
+}
+
+/// <summary>
+/// Ignora qualquer item que contenha, comece, ou termine com o título da lista de exclusão
+/// </summary>
+[Obsolete("getItemByExcludeTitleList is deprecated, please use getItemByEquality instead.")]
+static ProcessaDados.App.Models.HttpResponse.Object? getItemByExcludeTitleList(int itemId, DmarketResponse result)
+{
+    // Id do item que será tolerado mesmo que tenha o "excludedTitles",
+    // exemplo: Blastmitt Berserker Bundle, Golden Flight of Epiphany ou Crimson Pique
+    int[] exceptionItens = [23842, 12993, 7810, 7578, 35387];
+
+    // Títulos que serão ignorados na captura
+    var strStart = new[] {
+        "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson",
+        "Crownfall", "Exalted Call of the", "Exalted Voice of"
+        };
+
+    var strEnd = new[] { "Kinetic", "Loading Screen", "Bundle", "Golden", "Crimson" };
+
+    var strContains = new[] { "Crownfall Sticker", "Style Unlock" };
+
+    return exceptionItens.Contains(itemId) ?
+        result.objects.FirstOrDefault() :
+        result.objects.FirstOrDefault(o =>
+            !strStart.Any(excluded => o.title.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)) &&
+            !strEnd.Any(excluded => o.title.EndsWith(excluded, StringComparison.OrdinalIgnoreCase)) &&
+            !strContains.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase))
+        );
 }
 
 /// <summary>
