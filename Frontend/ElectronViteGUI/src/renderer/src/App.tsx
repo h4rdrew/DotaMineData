@@ -10,11 +10,10 @@ import dmarketLogo from './assets/dmarket_logo.png'
 import ExternalLink from './components/ExternalLink'
 import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
-import { ChartPie } from './components/chartPie.component'
 import DialogRegisterItem from './components/dialogRegisterItem.component'
-import { AppBar, Box, Button, IconButton, Menu, MenuItem, Toolbar, Typography } from '@mui/material'
+import { AppBar, Box, Button, Menu, MenuItem, Toolbar } from '@mui/material'
 import BasicDatePicker from './components/basicDatePicker.component'
-import dayjs, { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
 
 function App(): JSX.Element {
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)

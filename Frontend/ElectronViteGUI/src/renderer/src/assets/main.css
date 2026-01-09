@@ -3075,7 +3075,7 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
   overflow-y: auto;
   /* background-color: #f0f0f0;
   padding: 16px; */
-  height: calc(100vh - 87px);
+  height: calc(100vh - 116px);
 }
 .coluna-direita {
   /* width: 50%; */
