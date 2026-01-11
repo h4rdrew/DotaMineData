@@ -296,7 +296,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
     foreach (var item in itens)
     {
         // Encode do nome do item para URL
-        string encodedItemName = Uri.EscapeDataString(item.Name);
+        string encodedItemName = Uri.EscapeDataString(item.Name.Trim());
         string fullUrl = $"{apiUrl}{params1}{encodedItemName}{params2}";
 
         try
@@ -309,14 +309,22 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
                 // Lê a resposta e deserializa o arquivo JSON para um objeto
                 string responseData = await response.Content.ReadAsStringAsync();
                 var result = JsonConvert.DeserializeObject<DmarketResponse>(responseData);
-                if (result == null) continue;
+                if (result == null)
+                {
+                    Log.Warning($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Resposta nula para o item: [{item.ItemId}] {item.Name}");
+                    continue;
+                }
 
                 var itemResult = getItemByEquality(item, result);
 
                 // Ignora qualquer item com o título que está na lista de exclusão
                 //var itemResult = result.objects.FirstOrDefault(o => !excludedTitles.Any(excluded => o.title.Contains(excluded, StringComparison.OrdinalIgnoreCase)));
 
-                if (itemResult == null) continue;
+                if (itemResult == null)
+                {
+                    Log.Warning($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Item não encontrado na resposta da API: [{item.ItemId}] {item.Name}");
+                    continue;
+                }
 
                 // Converte o preço em DOLAR para BRL (em decimal com duas casas decimais)
                 var priceBRL = Math.Round(decimal.Parse(itemResult.price.USD) * exchangeRate / 100, 2);
@@ -376,19 +384,21 @@ static ProcessaDados.App.Models.HttpResponse.Object? getItemByEquality(Item item
     // Itens que não são do herói
     return result.objects.FirstOrDefault(obj =>
     {
-        if (string.IsNullOrWhiteSpace(obj.title))
+        var itemNameTrimmed = item.Name.Trim();
+
+        if (string.IsNullOrWhiteSpace(obj.title.Trim()))
             return false;
 
         // Caso 1: título é exatamente o nome do item
-        if (string.Equals(obj.title, item.Name, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(obj.title.Trim(), itemNameTrimmed, StringComparison.OrdinalIgnoreCase))
             return true;
 
         // Caso 2: título começa com "<Quality> " + item.Name
         foreach (var quality in itemQuality)
         {
-            var expected = $"{quality} {item.Name}";
+            var expected = $"{quality} {itemNameTrimmed}";
 
-            if (string.Equals(obj.title, expected, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(obj.title.Trim(), expected, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
 
