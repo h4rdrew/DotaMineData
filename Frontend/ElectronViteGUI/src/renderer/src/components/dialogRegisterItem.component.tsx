@@ -347,12 +347,13 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
               label="Hero"
               onChange={handleChangeForm('hero')}
             >
-              {/* Lista simplificada de heróis para exemplo */}
-              {heroes.map((hero) => (
-                <MenuItem key={hero.name} value={hero.id}>
-                  {hero.name}
-                </MenuItem>
-              ))}
+              {heroes
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((hero) => (
+                  <MenuItem key={hero.name} value={hero.id}>
+                    {hero.name}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
 
