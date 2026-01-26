@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import Chart, { ChartData, ChartOptions, Color, ScriptableLineSegmentContext } from 'chart.js/auto'
+import Chart, { ChartData, ChartOptions, ScriptableLineSegmentContext } from 'chart.js/auto'
 import { ChartsLineProps, ItemHistoric } from '@renderer/interfaces'
 
 function formatPrice(price: number): string {
@@ -115,6 +115,6 @@ function skipped(ctx: ScriptableLineSegmentContext, value: number[]): number[] |
   return ctx.p0.skip || ctx.p1.skip ? value : undefined
 }
 
-function down(ctx: ScriptableLineSegmentContext, value: string): Color | undefined {
-  return ctx.p0.parsed.y > ctx.p1.parsed.y ? value : undefined
-}
+// function down(ctx: ScriptableLineSegmentContext, value: string): Color | undefined {
+//   return ctx.p0.parsed.y > ctx.p1.parsed.y ? value : undefined
+// }

@@ -23,6 +23,7 @@ declare global {
         fileName: string
       ) => Promise<{ success: boolean; path: string }> // Recebe base64 e fileName e retorna sucesso e caminho
       getItemDataByDate: (date: string) => Promise<ItemDataDateNow[]> // Recebe date (YYYY-MM-DD)
+      getItemsByHero: (heroId: number) => Promise<ItemMenu[]> // Recebe heroId
     }
     eShell: {
       openExternal: (url: string) => Promise<void>

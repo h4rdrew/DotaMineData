@@ -323,8 +323,23 @@ ORDER BY ItemId, ServiceType;
   })
 })
 
+ipcMain.handle('getItemsByHero', async (_event, heroId: number) => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
+
+    db.all(`SELECT * FROM Item WHERE Hero = ? ORDER BY Name`, [heroId], (err, rows) => {
+      if (err) {
+        reject(err)
+      } else {
+        resolve(rows)
+      }
+    })
+    db.close()
+  })
+})
+
 // Expor o caminho das imagens
-ipcMain.handle('getImagePath', (event, itemId) => {
+ipcMain.handle('getImagePath', (itemId) => {
   const imagePath = path.join('E:\\DotaMine\\img', `${itemId}.png`)
   return fs.existsSync(imagePath) ? `file://${imagePath}` : null
 })

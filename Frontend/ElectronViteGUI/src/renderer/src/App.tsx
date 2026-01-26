@@ -1,26 +1,42 @@
 import React, { useEffect, useRef, useState } from 'react'
-import AirDatepicker from 'air-datepicker'
 import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
 import { ItemDataDateNow, ItemDB, ItemHistoric, ItemMenu } from './interfaces'
 import { ChartLine } from './components/chartLine.component'
 import steamLogo from './assets/steam_logo.png'
 import dmarketLogo from './assets/dmarket_logo.png'
+import liquipediaLogo from './assets/liquipedia_logo.png'
 // Importa o componente ExternalLink
 import ExternalLink from './components/ExternalLink'
 import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
 import DialogRegisterItem from './components/dialogRegisterItem.component'
-import { AppBar, Box, Button, Menu, MenuItem, Toolbar } from '@mui/material'
+import {
+  AppBar,
+  Box,
+  Button,
+  FormControl,
+  InputLabel,
+  Menu,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
+  Toolbar
+} from '@mui/material'
 import BasicDatePicker from './components/basicDatePicker.component'
 import dayjs from 'dayjs'
+import { heroes } from './utils/constantes'
+
+// type FormData = {
+//   hero: number
+// }
 
 function App(): JSX.Element {
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
   const [itemMenu, setItemMenu] = useState<ItemMenu[]>([])
 
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
+  // const inputRef = useRef<HTMLInputElement | null>(null)
+  // const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
   const itemSelected = useRef<string>('')
   const itemSelectedId = useRef<number>(0)
 
@@ -126,10 +142,9 @@ function App(): JSX.Element {
     setItemMenu(itensOrdenados) // Atualiza o estado com o array ordenado
   }
 
-  function createSteamHref(itemName: string): string {
-    const baseUrl = 'https://steamcommunity.com/market/search?appid=570&q='
-    const encodedHref = encodeURIComponent(itemName)
-    return `${baseUrl}${encodedHref}`
+  function createSteamHref(itemId: number): string {
+    const baseUrl = 'https://steamcommunity.com/market/search/?q=appid:570+prop_def_index:' + itemId
+    return baseUrl
   }
 
   function createDmarketHref(href: string): string {
@@ -187,7 +202,6 @@ function App(): JSX.Element {
   // 0 = só os itens comprados
   // 1 = só os itens não comprados
   // 2 = todos os itens
-
   function alteraExibicaoItemOwned(): void {
     const novoEstado = (estadoExibicaoItensComprados + 1) % 3 // Cicla entre 0, 1 e 2
     setEstadoExibicaoItensComprados(novoEstado)
@@ -197,10 +211,13 @@ function App(): JSX.Element {
     switch (novoEstado) {
       case 0: {
         // Exibe só os itens comprados
+        const heroSelected = hero !== '' ? Number(hero) : null
+
         const fetchItems = async (): Promise<void> => {
           try {
             const items = await window.api.getItems()
             const datas = await window.api.getItemDataDateNow()
+
             const itemsMenu = items
               .map((item: ItemDB) => {
                 const itemData = datas.filter(
@@ -211,7 +228,12 @@ function App(): JSX.Element {
                   Data: itemData
                 }
               })
-              .filter((item: ItemMenu) => item.Purchased) // Filtra só os itens comprados
+              .filter((item: ItemMenu) => {
+                if (!item.Purchased) return false
+                if (heroSelected) return item.Hero === heroSelected
+                return true
+              })
+
             setItemMenu(itemsMenu as ItemMenu[])
           } catch (error) {
             console.error('Erro ao buscar itens:', error)
@@ -223,6 +245,8 @@ function App(): JSX.Element {
       }
       case 1: {
         // Exibe só os itens não comprados
+        const heroSelected = hero !== '' ? Number(hero) : null
+
         const fetchItems = async (): Promise<void> => {
           try {
             const items = await window.api.getItems()
@@ -237,7 +261,11 @@ function App(): JSX.Element {
                   Data: itemData
                 }
               })
-              .filter((item: ItemMenu) => !item.Purchased) // Filtra só os itens não comprados
+              .filter((item: ItemMenu) => {
+                if (item.Purchased) return false
+                if (heroSelected) return item.Hero === heroSelected
+                return true
+              })
             setItemMenu(itemsMenu as ItemMenu[])
           } catch (error) {
             console.error('Erro ao buscar itens:', error)
@@ -249,18 +277,26 @@ function App(): JSX.Element {
       }
       case 2: {
         // Exibe todos os itens
+        const heroSelected = hero !== '' ? Number(hero) : null
         const fetchItems = async (): Promise<void> => {
           try {
             const items = await window.api.getItems()
             const datas = await window.api.getItemDataDateNow()
-            const itemsMenu = items.map((item: ItemDB) => {
-              const itemData = datas.filter((data: ItemDataDateNow) => data.ItemId === item.ItemId)
-              return {
-                ...item,
-                Data: itemData
-              }
-            }) as ItemMenu[]
-            setItemMenu(itemsMenu)
+            const itemsMenu = items
+              .map((item: ItemDB) => {
+                const itemData = datas.filter(
+                  (data: ItemDataDateNow) => data.ItemId === item.ItemId
+                )
+                return {
+                  ...item,
+                  Data: itemData
+                }
+              })
+              .filter((item: ItemMenu) => {
+                if (heroSelected) return item.Hero === heroSelected
+                return true
+              })
+            setItemMenu(itemsMenu as ItemMenu[])
           } catch (error) {
             console.error('Erro ao buscar itens:', error)
           }
@@ -383,6 +419,58 @@ function App(): JSX.Element {
     fetchItemsByDate()
   }
 
+  function buscaDadosAtualizados(): void {
+    const fetchItems = async (): Promise<void> => {
+      try {
+        const items = await window.api.getItems()
+        const datas = await window.api.getItemDataDateNow()
+        const itemsMenu = items.map((item: ItemDB) => {
+          const itemData = datas.filter((data: ItemDataDateNow) => data.ItemId === item.ItemId)
+          return {
+            ...item,
+            Data: itemData
+          }
+        }) as ItemMenu[]
+        setItemMenu(itemsMenu)
+      } catch (error) {
+        console.error('Erro ao buscar itens:', error)
+      }
+    }
+
+    fetchItems()
+  }
+
+  const [hero, setHero] = React.useState('')
+
+  const handleChange = (event: SelectChangeEvent): void => {
+    setHero(event.target.value)
+
+    if (event.target.value === '') {
+      // Se nenhum herói for selecionado, busca todos os itens
+      buscaDadosAtualizados()
+      return
+    }
+
+    const fetchItemsByHero = async (): Promise<void> => {
+      try {
+        const items = await window.api.getItemsByHero(Number(event.target.value))
+        const datas = await window.api.getItemDataDateNow()
+        const itemsMenu = items.map((item: ItemDB) => {
+          const itemData = datas.filter((data: ItemDataDateNow) => data.ItemId === item.ItemId)
+          return {
+            ...item,
+            Data: itemData
+          }
+        }) as ItemMenu[]
+        setItemMenu(itemsMenu)
+      } catch (error) {
+        console.error('Erro ao buscar itens pelo herói:', error)
+      }
+    }
+
+    fetchItemsByHero()
+  }
+
   return (
     <>
       <div className="app-container">
@@ -422,6 +510,29 @@ function App(): JSX.Element {
               <BasicDatePicker
                 onChange={(newValue) => buscaDadosPorData(newValue)}
               ></BasicDatePicker>
+
+              {/* HERO NAME */}
+              <FormControl fullWidth>
+                <InputLabel id="hero-select-label">Hero</InputLabel>
+                <Select
+                  labelId="hero-select-label"
+                  id="hero-select"
+                  value={hero}
+                  label="Hero"
+                  onChange={handleChange}
+                >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  {heroes
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((hero) => (
+                      <MenuItem key={hero.name} value={hero.id}>
+                        {hero.name}
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
             </Toolbar>
           </AppBar>
         </Box>
@@ -574,12 +685,19 @@ function App(): JSX.Element {
           {/* GRÁFICO */}
           <div id="sideBar" className="charts-container coluna-direita">
             <div className="item-selected">
-              <ExternalLink href={createSteamHref(itemSelected.current)} className="market-link">
+              <ExternalLink href={createSteamHref(itemSelectedId.current)} className="market-link">
                 <img src={steamLogo} alt="Steam" height="20px" />
               </ExternalLink>
 
               <ExternalLink href={createDmarketHref(itemSelected.current)} className="market-link">
                 <img src={dmarketLogo} alt="Dmarket" height="20px" />
+              </ExternalLink>
+
+              <ExternalLink
+                href={`https://liquipedia.net/dota2/${itemSelected.current.replace(/ /g, '_')}`}
+                className="market-link"
+              >
+                <img src={liquipediaLogo} alt="Liquipedia" height="20px" />
               </ExternalLink>
 
               <span

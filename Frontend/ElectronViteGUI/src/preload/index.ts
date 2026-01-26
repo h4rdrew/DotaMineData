@@ -26,7 +26,9 @@ const api = {
   ): Promise<{ success: boolean; path: string }> =>
     ipcRenderer.invoke('saveBase64Image', base64, fileName),
   getItemDataByDate: (date: string): Promise<unknown[]> =>
-    ipcRenderer.invoke('getItemDataByDate', date)
+    ipcRenderer.invoke('getItemDataByDate', date),
+  getItemsByHero: (heroId: number): Promise<unknown[]> =>
+    ipcRenderer.invoke('getItemsByHero', heroId)
 }
 
 const eShell = {

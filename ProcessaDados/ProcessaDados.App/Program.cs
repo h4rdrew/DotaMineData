@@ -1,12 +1,13 @@
-﻿using System.Globalization;
-using System.Net;
-using System.Text.RegularExpressions;
+﻿using AngleSharp;
 using Newtonsoft.Json;
 using ProcessaDados.App.Models;
 using ProcessaDados.App.Models.Db;
 using ProcessaDados.App.Models.HttpResponse;
 using Serilog;
 using Simple.Sqlite;
+using System.Globalization;
+using System.Net;
+using System.Text.RegularExpressions;
 
 // Configurando o Serilog
 Log.Logger = new LoggerConfiguration()
@@ -54,6 +55,8 @@ var itens = cnn.Query<Item>(@"SELECT * FROM Item ORDER BY Name");
 // Para novos itens, gravar antes utilizando o método capturaIdItens, para que o ID seja salvo no DB
 // TODO: Futuramente seria interessante utilizar em conjunto com o método capturaIdItens e já baixar as imagens
 //await capturaImagensItens(cnn, config?.ImgPath, itens);
+
+//await pegaHeroiIdPorItens(cnn, itens);
 
 Log.Information("Iniciando captura do valor do dolar");
 var exchangeRate = await capturaExchangeRate(cnn, config?.AwesomeApiKey ?? string.Empty);
@@ -607,8 +610,98 @@ static async Task steamRetry(ConfigJson? config, ISqliteConnection cnn, decimal 
     }
 }
 
+static async Task pegaHeroiIdPorItens(ISqliteConnection cnn, IEnumerable<Item> itens)
+{
+    // Lista com itens que não tem o ID de herói
+    var itensSemHeroiId = itens.Where(i => i.Hero == Hero.None).ToList();
+
+    var bulk_Item = new List<Item>();
+
+    HttpClient _httpClient = new();
+    // URL base da API
+    const string host = "https://liquipedia.net";
+    const string baseUrl = $"{host}/dota2/";
+
+    foreach (var item in itensSemHeroiId)
+    {
+        var formattedItem = item.Name.Replace(" ", "_");
+        string encodedItem = Uri.EscapeDataString(formattedItem);
+
+        try
+        {
+            // Enviar requisição GET
+            HttpResponseMessage response = await _httpClient.GetAsync($"{baseUrl}{encodedItem}");
+            if (response.IsSuccessStatusCode)
+            {
+                // Ler o HTML da resposta
+                string htmlContent = await response.Content.ReadAsStringAsync();
+
+                var context = BrowsingContext.New(Configuration.Default);
+                var document = await context.OpenAsync(req => req.Content(htmlContent));
+
+                var element = document.QuerySelector(".heroes-panel__hero-card__title a");
+
+                if (element != null)
+                {
+                    var heroName = element.TextContent.Trim();
+                    //var heroLink = element.GetAttribute("href");
+
+                    string normalizedHeroName =
+                        heroName
+                            .Replace("'", "")
+                            .Replace("-", "")
+                            .Replace(" ", "");
+
+                    if (Enum.TryParse<Hero>(normalizedHeroName, ignoreCase: true, out var heroEnum))
+                    {
+                        // Adiciona o item a lista de bulk para atualização
+                        var itemToUpdate = item;
+                        itemToUpdate.Hero = heroEnum;
+                        bulk_Item.Add(itemToUpdate);
+                        Log.Information($"{item.Id}:{item.Name} | {(int)heroEnum}:{heroName}");
+                    }
+                    else
+                    {
+                        Log.Warning($"Herói não mapeado para o item: {item.Name} (Nome capturado: {heroName})");
+                    }
+                }
+                else
+                {
+                    Log.Warning($"Herói não encontrado na página. Item: {item.Name}");
+                }
+            }
+            else
+            {
+                Log.Error($"Erro ao capturar os heróis por itens: ({response.StatusCode})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, $"Exceção ao capturar os heróis por itens: {ex.Message}");
+        }
+
+        // Pequeno atraso para evitar sobrecarga na API que varia de 5000 e 7000 ms
+        //await Task.Delay(new Random().Next(5000, 7000));
+        await Task.Delay(200);
+    }
+
+    // Atualiza os itens com o Hero capturado
+    try
+    {
+        cnn.BulkInsert(bulk_Item, OnConflict.Replace);
+        Log.Information($"Atualizados: {bulk_Item.Count} itens com o Hero correspondente.");
+    }
+    catch (Exception)
+    {
+        Log.Error("Erro ao atualizar os itens com o Hero correspondente.");
+    }
+}
+
 partial class Program
 {
     [GeneratedRegex(@"data-price=""(\d+)""")]
     private static partial Regex Rx_DataPrice();
+
+    [GeneratedRegex(@"<[^>]*class=[""'][^""']*heroes-panel__hero-card__title[^""']*[""'][^>]*>[\s\S]*?<a[^>]*>(.*?)<\/a>", RegexOptions.Singleline)]
+    private static partial Regex Rx_HeroName();
 }
