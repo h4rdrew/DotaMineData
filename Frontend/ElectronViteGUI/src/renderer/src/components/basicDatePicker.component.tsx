@@ -11,7 +11,7 @@ export default function BasicDatePicker({
 }): JSX.Element {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <DemoContainer components={['DatePicker']}>
+      <DemoContainer components={['DatePicker']} sx={{ m: 1, width: 200 }}>
         <DatePicker format="DD/MM/YYYY" label="Buscar por data" onChange={onChange} />
       </DemoContainer>
     </LocalizationProvider>

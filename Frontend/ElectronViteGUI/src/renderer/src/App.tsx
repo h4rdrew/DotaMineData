@@ -15,21 +15,34 @@ import {
   AppBar,
   Box,
   Button,
+  createTheme,
+  Divider,
   FormControl,
+  IconButton,
   InputLabel,
   Menu,
   MenuItem,
   Select,
   SelectChangeEvent,
+  ThemeProvider,
   Toolbar
 } from '@mui/material'
 import BasicDatePicker from './components/basicDatePicker.component'
 import dayjs from 'dayjs'
 import { heroes } from './utils/constantes'
+import MenuIcon from '@mui/icons-material/Menu'
 
 // type FormData = {
 //   hero: number
 // }
+const darkTheme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#1976d2'
+    }
+  }
+})
 
 function App(): JSX.Element {
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
@@ -475,66 +488,79 @@ function App(): JSX.Element {
     <>
       <div className="app-container">
         <Box sx={{ flexGrow: 1 }}>
-          <AppBar position="static" className="appbar-custom">
-            <Toolbar>
-              <Button
-                color="inherit"
-                id="basic-button"
-                aria-controls={open ? 'basic-menu' : undefined}
-                aria-haspopup="true"
-                aria-expanded={open ? 'true' : undefined}
-                onClick={handleClick}
-              >
-                Options
-              </Button>
-              <Menu
-                id="basic-menu"
-                anchorEl={anchorEl}
-                open={open}
-                onClose={handleClose}
-                slotProps={{
-                  list: {
-                    'aria-labelledby': 'basic-button'
-                  }
-                }}
-              >
-                <MenuItem
-                  onClick={() => {
-                    setOpenDialog(true)
-                    handleClose()
+          <ThemeProvider theme={darkTheme}>
+            <AppBar position="static" className="appbar-custom">
+              <Toolbar>
+                {/* MENU BUTTON */}
+                <IconButton
+                  id="basic-button"
+                  size="small"
+                  edge="start"
+                  color="inherit"
+                  aria-label="menu"
+                  aria-controls={open ? 'basic-menu' : undefined}
+                  aria-expanded={open ? 'true' : undefined}
+                  sx={{ mr: 2 }}
+                  onClick={handleClick}
+                >
+                  <MenuIcon />
+                </IconButton>
+                {/* MENU */}
+                <Menu
+                  id="basic-menu"
+                  anchorEl={anchorEl}
+                  open={open}
+                  onClose={handleClose}
+                  slotProps={{
+                    list: {
+                      'aria-labelledby': 'basic-button'
+                    }
                   }}
                 >
-                  New item
-                </MenuItem>
-              </Menu>
-              <BasicDatePicker
-                onChange={(newValue) => buscaDadosPorData(newValue)}
-              ></BasicDatePicker>
-
-              {/* HERO NAME */}
-              <FormControl fullWidth>
-                <InputLabel id="hero-select-label">Hero</InputLabel>
-                <Select
-                  labelId="hero-select-label"
-                  id="hero-select"
-                  value={hero}
-                  label="Hero"
-                  onChange={handleChange}
-                >
-                  <MenuItem value="">
-                    <em>None</em>
+                  <MenuItem
+                    onClick={() => {
+                      setOpenDialog(true)
+                      handleClose()
+                    }}
+                  >
+                    New item
                   </MenuItem>
-                  {heroes
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((hero) => (
-                      <MenuItem key={hero.name} value={hero.id}>
-                        {hero.name}
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
-            </Toolbar>
-          </AppBar>
+                </Menu>
+
+                {/* HERO NAME */}
+                <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
+                  <InputLabel id="hero-select-label">Hero</InputLabel>
+                  <Select
+                    labelId="hero-select-label"
+                    id="hero-select"
+                    value={hero}
+                    label="Hero"
+                    onChange={handleChange}
+                  >
+                    <MenuItem value="">
+                      <em>None</em>
+                    </MenuItem>
+                    <Divider></Divider>
+                    {heroes
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((hero) => (
+                        <MenuItem key={hero.name} value={hero.id}>
+                          {hero.name}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+
+                {/* ESPAÇO */}
+                <Box sx={{ flexGrow: 1 }}></Box>
+
+                {/* DATE PICKER */}
+                <BasicDatePicker
+                  onChange={(newValue) => buscaDadosPorData(newValue)}
+                ></BasicDatePicker>
+              </Toolbar>
+            </AppBar>
+          </ThemeProvider>
         </Box>
         <div className="app-content">
           {/* ITENS */}
