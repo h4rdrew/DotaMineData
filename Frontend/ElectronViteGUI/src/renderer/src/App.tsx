@@ -12,11 +12,11 @@ import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
 import DialogRegisterItem from './components/dialogRegisterItem.component'
 import {
-  AppBar,
   Box,
-  Button,
   createTheme,
+  CssBaseline,
   Divider,
+  Drawer,
   FormControl,
   IconButton,
   InputLabel,
@@ -24,17 +24,20 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  styled,
   ThemeProvider,
-  Toolbar
+  Toolbar,
+  useTheme
 } from '@mui/material'
 import BasicDatePicker from './components/basicDatePicker.component'
 import dayjs from 'dayjs'
 import { heroes } from './utils/constantes'
 import MenuIcon from '@mui/icons-material/Menu'
+import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import SettingsIcon from '@mui/icons-material/Settings'
 
-// type FormData = {
-//   hero: number
-// }
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
@@ -44,7 +47,82 @@ const darkTheme = createTheme({
   }
 })
 
+const drawerWidth = 640
+
+const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
+  open?: boolean
+}>(({ theme }) => ({
+  flexGrow: 1,
+  padding: theme.spacing(3),
+  transition: theme.transitions.create('margin', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen
+  }),
+  marginLeft: `-${drawerWidth}px`,
+  variants: [
+    {
+      props: ({ open }): boolean | undefined => open,
+      style: {
+        transition: theme.transitions.create('margin', {
+          easing: theme.transitions.easing.easeOut,
+          duration: theme.transitions.duration.enteringScreen
+        }),
+        marginLeft: 0
+      }
+    }
+  ]
+}))
+
+interface AppBarProps extends MuiAppBarProps {
+  open?: boolean
+}
+
+const AppBar = styled(MuiAppBar, {
+  shouldForwardProp: (prop) => prop !== 'open'
+})<AppBarProps>(({ theme }) => ({
+  transition: theme.transitions.create(['margin', 'width'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen
+  }),
+  variants: [
+    {
+      props: ({ open }): boolean | undefined => open,
+      style: {
+        width: `calc(100% - ${drawerWidth}px)`,
+        marginLeft: `${drawerWidth}px`,
+        transition: theme.transitions.create(['margin', 'width'], {
+          easing: theme.transitions.easing.easeOut,
+          duration: theme.transitions.duration.enteringScreen
+        })
+      }
+    }
+  ]
+}))
+
+const DrawerHeader = styled('div')(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: theme.spacing(0, 1),
+  // necessary for content to be below app bar
+  ...theme.mixins.toolbar,
+  justifyContent: 'flex-end'
+}))
+
+//--------------------------------
+
 function App(): JSX.Element {
+  const theme = useTheme()
+  const [open, setOpen] = React.useState(false)
+
+  const handleDrawerOpen = (): void => {
+    setOpen(true)
+  }
+
+  const handleDrawerClose = (): void => {
+    setOpen(false)
+  }
+
+  //------------------------
   const [selectedItemData, setSelectedItemData] = useState<ItemHistoric[] | null>(null)
   const [itemMenu, setItemMenu] = useState<ItemMenu[]>([])
 
@@ -397,7 +475,7 @@ function App(): JSX.Element {
   }
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
-  const open = Boolean(anchorEl)
+  const openMenu = Boolean(anchorEl)
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
     setAnchorEl(event.currentTarget)
   }
@@ -486,306 +564,353 @@ function App(): JSX.Element {
 
   return (
     <>
-      <div className="app-container">
-        <Box sx={{ flexGrow: 1 }}>
-          <ThemeProvider theme={darkTheme}>
-            <AppBar position="static" className="appbar-custom">
-              <Toolbar>
-                {/* MENU BUTTON */}
-                <IconButton
-                  id="basic-button"
-                  size="small"
-                  edge="start"
-                  color="inherit"
-                  aria-label="menu"
-                  aria-controls={open ? 'basic-menu' : undefined}
-                  aria-expanded={open ? 'true' : undefined}
-                  sx={{ mr: 2 }}
-                  onClick={handleClick}
+      <ThemeProvider theme={darkTheme}>
+        <Box sx={{ display: 'flex' }}>
+          <CssBaseline />
+
+          <AppBar position="fixed" open={open}>
+            <Toolbar>
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                onClick={handleDrawerOpen}
+                edge="start"
+                sx={[
+                  {
+                    mr: 2
+                  },
+                  open && { display: 'none' }
+                ]}
+              >
+                <MenuIcon />
+              </IconButton>
+              {/* HERO NAME */}
+              <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
+                <InputLabel id="hero-select-label">Hero</InputLabel>
+                <Select
+                  labelId="hero-select-label"
+                  id="hero-select"
+                  value={hero}
+                  label="Hero"
+                  onChange={handleChange}
                 >
-                  <MenuIcon />
-                </IconButton>
-                {/* MENU */}
-                <Menu
-                  id="basic-menu"
-                  anchorEl={anchorEl}
-                  open={open}
-                  onClose={handleClose}
-                  slotProps={{
-                    list: {
-                      'aria-labelledby': 'basic-button'
-                    }
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  <Divider></Divider>
+                  {heroes
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((hero) => (
+                      <MenuItem key={hero.name} value={hero.id}>
+                        {hero.name}
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+
+              {/* ESPAÇO */}
+              <Box sx={{ flexGrow: 1 }}></Box>
+
+              {/* DATE PICKER */}
+              <BasicDatePicker
+                onChange={(newValue) => buscaDadosPorData(newValue)}
+              ></BasicDatePicker>
+            </Toolbar>
+          </AppBar>
+          <Drawer
+            sx={{
+              width: drawerWidth,
+              flexShrink: 0,
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box'
+              }
+            }}
+            variant="persistent"
+            anchor="left"
+            open={open}
+          >
+            <DrawerHeader>
+              {/* MENU BUTTON */}
+              <IconButton
+                id="basic-button"
+                size="small"
+                edge="start"
+                color="inherit"
+                aria-label="menu"
+                aria-controls={openMenu ? 'basic-menu' : undefined}
+                aria-expanded={openMenu ? 'true' : undefined}
+                sx={{ mr: 2 }}
+                onClick={handleClick}
+              >
+                <SettingsIcon />
+              </IconButton>
+              {/* MENU */}
+              <Menu
+                id="basic-menu"
+                anchorEl={anchorEl}
+                open={openMenu}
+                onClose={handleClose}
+                slotProps={{
+                  list: {
+                    'aria-labelledby': 'basic-button'
+                  }
+                }}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setOpenDialog(true)
+                    handleClose()
                   }}
                 >
-                  <MenuItem
-                    onClick={() => {
-                      setOpenDialog(true)
-                      handleClose()
-                    }}
-                  >
-                    New item
-                  </MenuItem>
-                </Menu>
+                  New item
+                </MenuItem>
+              </Menu>
 
-                {/* HERO NAME */}
-                <FormControl sx={{ m: 1, minWidth: 120 }} size="small">
-                  <InputLabel id="hero-select-label">Hero</InputLabel>
-                  <Select
-                    labelId="hero-select-label"
-                    id="hero-select"
-                    value={hero}
-                    label="Hero"
-                    onChange={handleChange}
-                  >
-                    <MenuItem value="">
-                      <em>None</em>
-                    </MenuItem>
-                    <Divider></Divider>
-                    {heroes
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((hero) => (
-                        <MenuItem key={hero.name} value={hero.id}>
-                          {hero.name}
-                        </MenuItem>
-                      ))}
-                  </Select>
-                </FormControl>
+              {/* ESPAÇO */}
+              <Box sx={{ flexGrow: 1 }}></Box>
 
-                {/* ESPAÇO */}
-                <Box sx={{ flexGrow: 1 }}></Box>
+              <IconButton onClick={handleDrawerClose}>
+                {theme.direction === 'ltr' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+              </IconButton>
+            </DrawerHeader>
+            <Divider />
 
-                {/* DATE PICKER */}
-                <BasicDatePicker
-                  onChange={(newValue) => buscaDadosPorData(newValue)}
-                ></BasicDatePicker>
-              </Toolbar>
-            </AppBar>
-          </ThemeProvider>
-        </Box>
-        <div className="app-content">
-          {/* ITENS */}
-          <div id="searchResults" className="market_page_left">
-            <div
-              id="searchResultsTable"
-              className="market_content_block market_home_listing_table market_home_main_listing_table market_listing_table market_listing_table_active"
-            >
-              <div id="searchResultsRows">
-                <div className="market_listing_table_header">
-                  <div
-                    className="market_listing_right_cell pointer"
-                    style={{ width: '70px' }}
-                    onClick={() => alteraExibicaoItemPorcent()}
-                  >
-                    %
-                  </div>
-
-                  <div
-                    className="market_listing_right_cell pointer"
-                    style={{ width: '70px' }}
-                    onClick={() => alteraExibicaoItemOwned()}
-                  >
-                    OWNED
-                  </div>
-
-                  <div className="market_listing_price_listings_block">
+            {/* ITENS */}
+            <div id="searchResults" className="market_page_left">
+              <div
+                id="searchResultsTable"
+                className="market_content_block market_home_listing_table market_home_main_listing_table market_listing_table market_listing_table_active"
+              >
+                <div id="searchResultsRows">
+                  <div className="market_listing_table_header">
                     <div
-                      className="market_listing_right_cell market_listing_their_price market_sortable_column"
-                      data-sorttype="price"
-                      onClick={() => filtraDadosItens('p1_price_asc')}
+                      className="market_listing_right_cell pointer"
+                      style={{ width: '70px' }}
+                      onClick={() => alteraExibicaoItemPorcent()}
                     >
-                      STEAM
+                      %
                     </div>
+
                     <div
-                      className="market_listing_right_cell market_listing_num_listings market_sortable_column"
-                      data-sorttype="price"
-                      onClick={() => filtraDadosItens('p2_price_asc')}
+                      className="market_listing_right_cell pointer"
+                      style={{ width: '70px' }}
+                      onClick={() => alteraExibicaoItemOwned()}
                     >
-                      DMARKET
+                      OWNED
                     </div>
-                    {/* <div
+
+                    <div className="market_listing_price_listings_block">
+                      <div
+                        className="market_listing_right_cell market_listing_their_price market_sortable_column"
+                        data-sorttype="price"
+                        onClick={() => filtraDadosItens('p1_price_asc')}
+                      >
+                        STEAM
+                      </div>
+                      <div
+                        className="market_listing_right_cell market_listing_num_listings market_sortable_column"
+                        data-sorttype="price"
+                        onClick={() => filtraDadosItens('p2_price_asc')}
+                      >
+                        DMARKET
+                      </div>
+                      {/* <div
                     className="market_listing_right_cell market_listing_price_listings_combined market_sortable_column"
                     data-sorttype="price"
                   >
                     PREÇO<span className="market_sort_arrow" style={{ display: 'none' }}></span>
                   </div> */}
-                  </div>
-                  <div
-                    className="market_sortable_column"
-                    data-sorttype="name"
-                    onClick={() => filtraDadosItens('p1_name_asc')}
-                  >
-                    <span className="market_listing_header_namespacer"></span>NAME
-                    <span className="market_sort_arrow" style={{ display: 'none' }}></span>
-                  </div>
-                </div>
-
-                <div className="coluna-esquerda">
-                  {itemMenu.map((item) => (
-                    <div
-                      className="market_listing_row_link"
-                      id="resultlink_0"
-                      key={item.ItemId}
-                      onClick={() => buscaDadosItem(item)}
-                    >
-                      <div
-                        className="market_listing_row market_recent_listing_row market_listing_searchresult"
-                        id="result_0"
-                        data-appid="570"
-                        data-hash-name="Autographed Stuntwood Sanctuary"
-                        onClick={(e) => trocaEstiloSelecionado(e.currentTarget as HTMLDivElement)}
-                      >
-                        <img
-                          id="result_0_image"
-                          key={item.ItemId}
-                          src={`file:///E:/DotaMine/img/${item.ItemId}.png`} // Usa fallback se a imagem não existir
-                          style={{ borderColor: '#D2D2D2' }}
-                          className="market_listing_item_img"
-                          alt=""
-                        ></img>
-                        <div className="market_listing_price_listings_block">
-                          <div className="market_listing_right_cell" style={{ width: '60px' }}>
-                            <span className="market_table_value">
-                              {pegaPorcentualDMarket(item)}
-                            </span>
-                          </div>
-
-                          <div className="market_listing_right_cell" style={{ width: '60px' }}>
-                            <span className="market_table_value" onClick={favoritaItem(item)}>
-                              <img
-                                src={item.Purchased ? svgStar : svgVoidStar}
-                                alt=""
-                                height="16"
-                              />
-                            </span>
-                          </div>
-
-                          <div className="market_listing_right_cell market_listing_their_price">
-                            <span className="market_table_value normal_price">
-                              <span
-                                className="normal_price"
-                                // data-price={buscaPreco(item.ItemId, 'steam')}
-                                // data-currency="7"
-                              >
-                                {pegaPreco(item.Data, 'steam')}
-                              </span>
-                            </span>
-                            <span className="market_arrow_down" style={{ display: 'none' }}></span>
-                            <span className="market_arrow_up" style={{ display: 'none' }}></span>
-                          </div>
-
-                          <div className="market_listing_right_cell market_listing_their_price">
-                            <span className="market_table_value normal_price">
-                              <span
-                                className="normal_price"
-                                // data-price={buscaPreco(item.ItemId, 'dmarket')}
-                                // data-currency="7"
-                              >
-                                {pegaPreco(item.Data, 'dmarket')}
-                              </span>
-                            </span>
-                            <span className="market_arrow_down" style={{ display: 'none' }}></span>
-                            <span className="market_arrow_up" style={{ display: 'none' }}></span>
-                          </div>
-                        </div>
-
-                        <div className="market_listing_item_name_block">
-                          <span
-                            id="result_0_name"
-                            className="market_listing_item_name"
-                            style={{ color: '#D2D2D2' }}
-                          >
-                            {item.Name}
-                          </span>
-                          <br />
-                          <span className="market_listing_game_name">Description</span>
-                        </div>
-                        <div style={{ clear: 'both' }}></div>
-                      </div>
                     </div>
-                  ))}
+                    <div
+                      className="market_sortable_column"
+                      data-sorttype="name"
+                      onClick={() => filtraDadosItens('p1_name_asc')}
+                    >
+                      <span className="market_listing_header_namespacer"></span>NAME
+                      <span className="market_sort_arrow" style={{ display: 'none' }}></span>
+                    </div>
+                  </div>
+
+                  <div className="coluna-esquerda">
+                    {itemMenu.map((item) => (
+                      <div
+                        className="market_listing_row_link"
+                        id="resultlink_0"
+                        key={item.ItemId}
+                        onClick={() => buscaDadosItem(item)}
+                      >
+                        <div
+                          className="market_listing_row market_recent_listing_row market_listing_searchresult"
+                          id="result_0"
+                          data-appid="570"
+                          data-hash-name="Autographed Stuntwood Sanctuary"
+                          onClick={(e) => trocaEstiloSelecionado(e.currentTarget as HTMLDivElement)}
+                        >
+                          <img
+                            id="result_0_image"
+                            key={item.ItemId}
+                            src={`file:///E:/DotaMine/img/${item.ItemId}.png`} // Usa fallback se a imagem não existir
+                            style={{ borderColor: '#D2D2D2' }}
+                            className="market_listing_item_img"
+                            alt=""
+                          ></img>
+                          <div className="market_listing_price_listings_block">
+                            <div className="market_listing_right_cell" style={{ width: '60px' }}>
+                              <span className="market_table_value">
+                                {pegaPorcentualDMarket(item)}
+                              </span>
+                            </div>
+
+                            <div className="market_listing_right_cell" style={{ width: '60px' }}>
+                              <span className="market_table_value" onClick={favoritaItem(item)}>
+                                <img
+                                  src={item.Purchased ? svgStar : svgVoidStar}
+                                  alt=""
+                                  height="16"
+                                />
+                              </span>
+                            </div>
+
+                            <div className="market_listing_right_cell market_listing_their_price">
+                              <span className="market_table_value normal_price">
+                                <span
+                                  className="normal_price"
+                                  // data-price={buscaPreco(item.ItemId, 'steam')}
+                                  // data-currency="7"
+                                >
+                                  {pegaPreco(item.Data, 'steam')}
+                                </span>
+                              </span>
+                              <span
+                                className="market_arrow_down"
+                                style={{ display: 'none' }}
+                              ></span>
+                              <span className="market_arrow_up" style={{ display: 'none' }}></span>
+                            </div>
+
+                            <div className="market_listing_right_cell market_listing_their_price">
+                              <span className="market_table_value normal_price">
+                                <span
+                                  className="normal_price"
+                                  // data-price={buscaPreco(item.ItemId, 'dmarket')}
+                                  // data-currency="7"
+                                >
+                                  {pegaPreco(item.Data, 'dmarket')}
+                                </span>
+                              </span>
+                              <span
+                                className="market_arrow_down"
+                                style={{ display: 'none' }}
+                              ></span>
+                              <span className="market_arrow_up" style={{ display: 'none' }}></span>
+                            </div>
+                          </div>
+
+                          <div className="market_listing_item_name_block">
+                            <span
+                              id="result_0_name"
+                              className="market_listing_item_name"
+                              style={{ color: '#D2D2D2' }}
+                            >
+                              {item.Name}
+                            </span>
+                            <br />
+                            <span className="market_listing_game_name">Description</span>
+                          </div>
+                          <div style={{ clear: 'both' }}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </Drawer>
+          <Main open={open}>
+            <DrawerHeader />
+            <div className="info-item-container">
+              <div className="item-selected">
+                <ExternalLink
+                  href={createSteamHref(itemSelectedId.current)}
+                  className="market-link"
+                >
+                  <img src={steamLogo} alt="Steam" height="20px" />
+                </ExternalLink>
 
-          {/* GRÁFICO */}
-          <div id="sideBar" className="charts-container coluna-direita">
-            <div className="item-selected">
-              <ExternalLink href={createSteamHref(itemSelectedId.current)} className="market-link">
-                <img src={steamLogo} alt="Steam" height="20px" />
-              </ExternalLink>
+                <ExternalLink
+                  href={createDmarketHref(itemSelected.current)}
+                  className="market-link"
+                >
+                  <img src={dmarketLogo} alt="Dmarket" height="20px" />
+                </ExternalLink>
 
-              <ExternalLink href={createDmarketHref(itemSelected.current)} className="market-link">
-                <img src={dmarketLogo} alt="Dmarket" height="20px" />
-              </ExternalLink>
+                <ExternalLink
+                  href={`https://liquipedia.net/dota2/${itemSelected.current.replace(/ /g, '_')}`}
+                  className="market-link"
+                >
+                  <img src={liquipediaLogo} alt="Liquipedia" height="20px" />
+                </ExternalLink>
 
-              <ExternalLink
-                href={`https://liquipedia.net/dota2/${itemSelected.current.replace(/ /g, '_')}`}
-                className="market-link"
-              >
-                <img src={liquipediaLogo} alt="Liquipedia" height="20px" />
-              </ExternalLink>
-
-              <span
-                className="pointer"
-                onClick={(e) => copyItemNameToClipboard(e, itemSelected.current)}
-              >
-                {itemSelected.current}
-              </span>
-
-              <small>({itemSelectedId.current})</small>
-            </div>
-
-            {/* <div className="chart-pie-container">
-            <ChartPie
-              data={itemMenu.find((item) => item.Name === itemSelected.current)?.Data || null}
-            />
-          </div> */}
-
-            <div className="tab">
-              <a className="tablinks" onClick={(e) => openTab(e, 0)}>
-                Current Prices
-              </a>
-              <a className="tablinks" onClick={(e) => openTab(e, 1)}>
-                Historical Low
-              </a>
-            </div>
-
-            <div id="tab-0" className="tabcontent">
-              <div className="tab-content-cotainer">
-                <span className="info-price-label">Steam:</span>
-                <span className="price-tab">
-                  {selectedItemData
-                    ? pegaPreco(
-                        itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
-                        'steam'
-                      )
-                    : 'R$ 0,00'}
+                <span
+                  className="pointer"
+                  onClick={(e) => copyItemNameToClipboard(e, itemSelected.current)}
+                >
+                  {itemSelected.current}
                 </span>
+
+                <small>({itemSelectedId.current})</small>
               </div>
 
-              <div className="tab-content-cotainer">
-                <span className="info-price-label">DMarket:</span>
-                <span className="price-tab">
-                  {selectedItemData
-                    ? pegaPreco(
-                        itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
-                        'dmarket'
-                      )
-                    : 'R$ 0,00'}
-                </span>
+              <div className="tab">
+                <a className="tablinks" onClick={(e) => openTab(e, 0)}>
+                  Current Prices
+                </a>
+                <a className="tablinks" onClick={(e) => openTab(e, 1)}>
+                  Historical Low
+                </a>
+              </div>
+
+              <div id="tab-0" className="tabcontent">
+                <div className="tab-content-cotainer">
+                  <span className="info-price-label">Steam:</span>
+                  <span className="price-tab">
+                    {selectedItemData
+                      ? pegaPreco(
+                          itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
+                          'steam'
+                        )
+                      : 'R$ 0,00'}
+                  </span>
+                </div>
+
+                <div className="tab-content-cotainer">
+                  <span className="info-price-label">DMarket:</span>
+                  <span className="price-tab">
+                    {selectedItemData
+                      ? pegaPreco(
+                          itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
+                          'dmarket'
+                        )
+                      : 'R$ 0,00'}
+                  </span>
+                </div>
+              </div>
+
+              <div id="tab-1" className="tabcontent">
+                Historical Low Content
               </div>
             </div>
 
-            <div id="tab-1" className="tabcontent">
-              Historical Low Content
-            </div>
-
-            <ChartLine data={selectedItemData} labels={[]} />
-          </div>
-        </div>
-      </div>
-      <DialogRegisterItem open={openDialog} onClose={() => setOpenDialog(false)} />
+            {/* GRÁFICO */}
+            {/* quando o menu esta colapsado, faz width = calc(100% - drawerWidth) */}
+            <Box sx={{ p: 1 }}>
+              <ChartLine data={selectedItemData} labels={[]} />
+            </Box>
+          </Main>
+        </Box>
+        <DialogRegisterItem open={openDialog} onClose={() => setOpenDialog(false)} />
+      </ThemeProvider>
     </>
   )
 }

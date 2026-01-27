@@ -1214,7 +1214,7 @@ a.market_tab_well_tab_inactive:hover {
 
 #sideBar {
   float: right;
-  width: 60%;
+  width: 66%;
   margin-right: 0%;
 }
 
@@ -3188,4 +3188,8 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
 
 .appbar-custom {
   /* background-color: #1b1b1b; */
+}
+
+.grafico {
+  height: 83%;
 }
