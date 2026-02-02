@@ -75,9 +75,15 @@ await Task.WhenAll(steamTask, dmarketTask);
 
 Log.Information("Captura de dados finalizada");
 
-if (steamTask.Result.Count() > 0)
+var itensNaoCapturados = steamTask.Result;
+
+if (itensNaoCapturados.Count > 0)
 {
-    await steamRetry(config, cnn, exchangeRate, steamTask);
+    Log.Information(
+    "[STEAM] Primeira tentativa finalizada. {Count} itens pendentes.",
+    itensNaoCapturados.Count
+    );
+    await steamRetry(config, cnn, exchangeRate, itensNaoCapturados);
 }
 
 Console.WriteLine("Pressione ENTER para sair...");
@@ -591,41 +597,65 @@ static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn, string api
     return 0;
 }
 
-static async Task steamRetry(ConfigJson? config, ISqliteConnection cnn, decimal exchangeRate, Task<List<Item>> steamTask)
+static async Task steamRetry(
+    ConfigJson? config,
+    ISqliteConnection cnn,
+    decimal exchangeRate,
+    List<Item> itensNaoCapturados
+    )
 {
-    Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Existe itens que não foram capturados ({steamTask.Result.Count()}). Deseja tentar novamente apenas para esses itens? (Y/N)");
-    string? input = Console.ReadLine()?.Trim().ToUpper();
-
-    if (input == "Y")
+    while (itensNaoCapturados.Count > 0)
     {
-        // Ação para SIM
-        Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Reexecutando apenas para itens não capturados...");
+        Console.WriteLine(
+            $"[{nameof(ServiceMethod.ServiceType.STEAM)}] " +
+            $"Existem {itensNaoCapturados.Count} itens que não foram capturados. " +
+            $"Deseja tentar novamente apenas para esses itens? (Y/N)"
+        );
 
-        var steamRetryTask = steam(cnn, exchangeRate, steamTask.Result, config?.SteamCookies);
+        string? input = Console.ReadLine()?.Trim().ToUpper();
 
-        await Task.WhenAll(steamRetryTask);
-
-        if (steamRetryTask.Result.Count() > 0)
+        if (input == "N")
         {
-            Console.WriteLine($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído, itens que não foram capturados:");
-            foreach (var item in steamRetryTask.Result)
-            {
-                Console.WriteLine($"[{item.Id}] {item.Name}");
-            }
+            Console.WriteLine("Pulando...");
+            break;
         }
-        else
+
+        if (input != "Y")
         {
-            Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído. Todos os itens foram capturados.");
+            Console.WriteLine("Entrada inválida, tente novamente...");
+            continue;
         }
-    }
-    else if (input == "N")
-    {
-        // Ação para NÃO
-        Console.WriteLine("Pulando...");
-    }
-    else
-    {
-        Console.WriteLine("Entrada inválida, ignorando...");
+
+        Console.WriteLine(
+            $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Reexecutando apenas para itens não capturados..."
+        );
+
+        var retryResult = await steam(
+            cnn,
+            exchangeRate,
+            itensNaoCapturados,
+            config?.SteamCookies
+        );
+
+        if (retryResult.Count == 0)
+        {
+            Log.Information(
+                $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído. Todos os itens foram capturados."
+            );
+            break;
+        }
+
+        Console.WriteLine(
+            $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Retry concluído, itens que ainda não foram capturados:"
+        );
+
+        foreach (var item in retryResult)
+        {
+            Console.WriteLine($"[{item.Id}] {item.Name}");
+        }
+
+        // Atualiza a lista para a próxima iteração do while
+        itensNaoCapturados = retryResult;
     }
 }
 
