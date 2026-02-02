@@ -46,6 +46,7 @@ public record Object
     public Deliverystats deliveryStats { get; set; }
     public Fees fees { get; set; }
     public Discountprice discountPrice { get; set; }
+    public bool tradeProtectionRemoved { get; set; }
     public string productId { get; set; }
     public int favoriteFor { get; set; }
     public bool favoriteForUser { get; set; }
@@ -130,6 +131,9 @@ public record Extra
     public string linkId { get; set; }
     public int tradeLock { get; set; }
     public int tradeLockDuration { get; set; }
+    public string settlementTime { get; set; }
+    public int settlementDuration { get; set; }
+    public bool tradeProtectionRemoved { get; set; }
     public string hero { get; set; }
     public string rarity { get; set; }
     public string type { get; set; }

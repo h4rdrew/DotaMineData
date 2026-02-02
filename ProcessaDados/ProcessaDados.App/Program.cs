@@ -286,7 +286,15 @@ static async Task capturaIdItens(ISqliteConnection cnn, List<string> items)
 /// <returns></returns>
 static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens)
 {
-    HttpClient _httpClient = new();
+    var handler = new HttpClientHandler
+    {
+        AutomaticDecompression =
+            DecompressionMethods.GZip |
+            DecompressionMethods.Deflate |
+            DecompressionMethods.Brotli
+    };
+
+    HttpClient _httpClient = new HttpClient(handler);
 
     // URL base e parâmetros fixos
     const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items";
@@ -311,7 +319,18 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
             {
                 // Lê a resposta e deserializa o arquivo JSON para um objeto
                 string responseData = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<DmarketResponse>(responseData);
+
+                var result = null as DmarketResponse;
+
+                try
+                {
+                    result = JsonConvert.DeserializeObject<DmarketResponse>(responseData);
+                }
+                catch (JsonException ex)
+                {
+                    Log.Error(ex, "Erro ao desserializar JSON. Item: {Item}", item.Name);
+                    continue;
+                }
                 if (result == null)
                 {
                     Log.Warning($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Resposta nula para o item: [{item.ItemId}] {item.Name}");
@@ -343,12 +362,12 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
             }
             else
             {
-                Log.Warning($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Erro ({response.StatusCode}): {item}");
+                Log.Warning($"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Erro ({response.StatusCode}): {item.Name}");
             }
         }
         catch (Exception ex)
         {
-            Log.Error(ex, $"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Exceção ao processar '{item}': {ex.Message}");
+            Log.Error(ex, $"[{nameof(ServiceMethod.ServiceType.DMARKET)}] Exceção ao processar '{item.Name}': {ex.Message}");
         }
 
         //// Pequeno atraso para evitar sobrecarga na API
