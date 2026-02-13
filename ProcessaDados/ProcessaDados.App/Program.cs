@@ -16,7 +16,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
-Log.Information("Aplicação iniciada: v1.1.0");
+Log.Information("Aplicação iniciada: v1.1.1");
 
 const string filePath = "config.json";
 
