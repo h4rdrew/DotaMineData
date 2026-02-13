@@ -1,5 +1,6 @@
 ﻿using AngleSharp;
 using Newtonsoft.Json;
+using ProcessaDados.App;
 using ProcessaDados.App.Models;
 using ProcessaDados.App.Models.Db;
 using ProcessaDados.App.Models.HttpResponse;
@@ -59,7 +60,9 @@ var itens = cnn.Query<Item>(@"SELECT * FROM Item ORDER BY Name");
 //await pegaHeroiIdPorItens(cnn, itens);
 
 Log.Information("Iniciando captura do valor do dolar");
-var exchangeRate = await capturaExchangeRate(cnn, config?.AwesomeApiKey ?? string.Empty);
+//var exchangeRate = await capturaExchangeRateMethod1(cnn, config?.AwesomeApiKey ?? string.Empty);
+var exchangeRate = await capturaExchangeRateMethod2(cnn);
+
 Log.Information($"Cotação do dólar: {exchangeRate}");
 
 if (exchangeRate == 0)
@@ -85,6 +88,8 @@ if (itensNaoCapturados.Count > 0)
     );
     await steamRetry(config, cnn, exchangeRate, itensNaoCapturados);
 }
+
+WindowsToast.Notify("Processa dados finalizado com sucesso!");
 
 Console.WriteLine("Pressione ENTER para sair...");
 Console.ReadLine();
@@ -300,7 +305,7 @@ static async Task dmarket(ISqliteConnection cnn, decimal exchangeRate, IEnumerab
             DecompressionMethods.Brotli
     };
 
-    HttpClient _httpClient = new HttpClient(handler);
+    var _httpClient = new HttpClient(handler);
 
     // URL base e parâmetros fixos
     const string apiUrl = "https://api.dmarket.com/exchange/v1/market/items";
@@ -578,7 +583,7 @@ static async Task downloadImage(string imgUrl, Item item, string? imgPath)
     }
 }
 
-static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn, string apiKey)
+static async Task<decimal> capturaExchangeRateMethod1(ISqliteConnection cnn, string apiKey)
 {
     const string url = "https://economia.awesomeapi.com.br/json/last/USD-BRL";
 
@@ -597,6 +602,43 @@ static async Task<decimal> capturaExchangeRate(ISqliteConnection cnn, string api
     return 0;
 }
 
+static async Task<decimal> capturaExchangeRateMethod2(ISqliteConnection cnn)
+{
+    const string url = "https://api.dmarket.com/currency-rate/v1/rates";
+
+    var handler = new HttpClientHandler
+    {
+        AutomaticDecompression =
+            DecompressionMethods.GZip |
+            DecompressionMethods.Deflate |
+            DecompressionMethods.Brotli
+    };
+
+    var _httpClient = new HttpClient(handler);
+
+    HttpResponseMessage response = await _httpClient.GetAsync(url);
+    if (response.IsSuccessStatusCode)
+    {
+        // Lê a resposta e deserializa o arquivo JSON para um objeto
+        string responseData = await response.Content.ReadAsStringAsync();
+
+        var exchangeRate = null as DmarketExchangeRateResponse;
+
+        try
+        {
+            exchangeRate = JsonConvert.DeserializeObject<DmarketExchangeRateResponse>(responseData);
+            if (exchangeRate == null) return 0;
+
+            return exchangeRate.Rates.BRL;
+        }
+        catch (Exception ex)
+        {
+            return 0;
+        }
+    }
+    return 0;
+}
+
 static async Task steamRetry(
     ConfigJson? config,
     ISqliteConnection cnn,
@@ -606,6 +648,7 @@ static async Task steamRetry(
 {
     while (itensNaoCapturados.Count > 0)
     {
+        WindowsToast.Notify("Processa dados pendente...");
         Console.WriteLine(
             $"[{nameof(ServiceMethod.ServiceType.STEAM)}] " +
             $"Existem {itensNaoCapturados.Count} itens que não foram capturados. " +
