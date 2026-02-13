@@ -9,9 +9,10 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  Select
+  Select,
+  Skeleton
 } from '@mui/material'
-import { Hero, heroes } from '@renderer/utils/constantes'
+import { getRarityColor, Hero, heroes } from '@renderer/utils/constantes'
 import React, { useState } from 'react'
 
 interface DialogRegisterItemProps {
@@ -58,6 +59,14 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
         ...form,
         [campo]: e.target.value
       })
+
+      // se for o campo 'rarity', atualizar a cor do select
+      if (campo === 'rarity') {
+        const selectElement = document.getElementById('rarity-select')
+        if (selectElement) {
+          selectElement.style.color = getRarityColor(String(e.target.value))
+        }
+      }
     }
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
@@ -84,6 +93,10 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
           console.error('Erro ao salvar imagem', err)
         })
       }
+
+      // Limpa o formulário e fecha o diálogo
+      clearForm()
+      // onClose()
     } catch (error) {
       console.error('Erro ao processar o formulário:', error)
     }
@@ -145,19 +158,29 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
     return hero ? hero : { id: 0, name: 'Unknown' }
   }
 
+  function clearForm(): void {
+    setForm({
+      id: '',
+      name: '',
+      url: '',
+      owned: false,
+      imageB64: '',
+      rarity: '',
+      hero: 0
+    })
+  }
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       aria-labelledby="alert-dialog-title"
       aria-describedby="alert-dialog-description"
+      maxWidth="lg"
     >
       <DialogTitle id="alert-dialog-title">{'Register a new item'}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit} id="register-item-form">
-          {/* ITEM IMAGE 600x400 */}
-          <img src={form.imageB64} alt="Item" height="240" />
-
           {/* URL */}
           <TextField
             autoFocus
@@ -170,79 +193,109 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
             onChange={handleChangeForm('url')}
           ></TextField>
 
-          {/* ITEM ID */}
-          <TextField
-            autoFocus
-            required
-            margin="dense"
-            label="Item ID"
-            type="text"
-            inputMode="numeric"
-            value={form.id}
-            onChange={handleChangeForm('id')}
-          ></TextField>
+          <div className="item-form-container">
+            {/* ITEM IMAGE 336x224 */}
+            {form.imageB64 ? (
+              <img src={form.imageB64} alt="Item" width={336} height={224} />
+            ) : (
+              <Skeleton variant="rectangular" width={336} height={224} />
+            )}
 
-          {/* ITEM NAME */}
-          <TextField
-            autoFocus
-            required
-            margin="dense"
-            label="Item name"
-            type="text"
-            fullWidth
-            value={form.name}
-            onChange={handleChangeForm('name')}
-          ></TextField>
+            <div className="item-form-fields">
+              {/* ITEM NAME */}
+              <TextField
+                autoFocus
+                required
+                margin="dense"
+                label="Item name"
+                type="text"
+                fullWidth
+                value={form.name}
+                onChange={handleChangeForm('name')}
+              ></TextField>
 
-          {/* ITEM RARITY */}
-          <FormControl fullWidth>
-            <InputLabel id="rarity-select-label">Rarity</InputLabel>
-            <Select
-              labelId="rarity-select-label"
-              id="rarity-select"
-              value={form.rarity}
-              label="Rarity"
-              onChange={handleSelectChange('rarity')}
-            >
-              {getRarityNames().map((rarity) => (
-                <MenuItem key={rarity} value={rarity}>
-                  {rarity}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              {/* ITEM ID and OWNED */}
+              <div className="item-flex-row">
+                {/* ITEM ID */}
+                <TextField
+                  autoFocus
+                  required
+                  margin="dense"
+                  label="Item ID"
+                  type="text"
+                  inputMode="numeric"
+                  value={form.id}
+                  onChange={handleChangeForm('id')}
+                ></TextField>
 
-          {/* HERO NAME */}
-          <FormControl fullWidth>
-            <InputLabel id="hero-select-label">Hero</InputLabel>
-            <Select
-              labelId="hero-select-label"
-              id="hero-select"
-              value={form.hero}
-              label="Hero"
-              onChange={handleSelectChange('hero')}
-            >
-              {heroes
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((hero) => (
-                  <MenuItem key={hero.name} value={hero.id}>
-                    {hero.name}
-                  </MenuItem>
-                ))}
-            </Select>
-          </FormControl>
+                {/* OWNED */}
+                <div className="flex-center">
+                  <Checkbox checked={form.owned} onChange={handleChangeForm('owned')} />
+                  Owned
+                </div>
+              </div>
 
-          {/* OWNED */}
-          <div>
-            <Checkbox checked={form.owned} onChange={handleChangeForm('owned')} />
-            Owned
+              {/* HERO and RARITY */}
+              <div className="item-flex-row select-margin-top">
+                {/* HERO NAME */}
+                <FormControl fullWidth>
+                  <InputLabel required id="hero-select-label">
+                    Hero
+                  </InputLabel>
+                  <Select
+                    labelId="hero-select-label"
+                    id="hero-select"
+                    value={form.hero}
+                    label="Hero"
+                    onChange={handleSelectChange('hero')}
+                  >
+                    {heroes
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((hero) => (
+                        <MenuItem key={hero.name} value={hero.id}>
+                          {hero.name}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+
+                {/* ITEM RARITY */}
+                <FormControl fullWidth>
+                  <InputLabel id="rarity-select-label">Rarity</InputLabel>
+                  <Select
+                    labelId="rarity-select-label"
+                    id="rarity-select"
+                    value={form.rarity}
+                    label="Rarity"
+                    onChange={handleSelectChange('rarity')}
+                  >
+                    {getRarityNames().map((rarity) => (
+                      <MenuItem
+                        key={rarity}
+                        value={rarity}
+                        style={{ color: getRarityColor(rarity) }}
+                      >
+                        {rarity}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
+            </div>
           </div>
         </form>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
+        <Button
+          onClick={() => {
+            onClose()
+            clearForm()
+          }}
+        >
+          Cancel
+        </Button>
         <Button autoFocus type="submit" form="register-item-form">
-          Salvar
+          Save
         </Button>
       </DialogActions>
     </Dialog>

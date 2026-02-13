@@ -3193,3 +3193,38 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
 .grafico {
   height: 83%;
 }
+
+.item-form-container {
+  display: flex;
+  gap: 32px;
+  margin-top: 20px;
+}
+
+.item-form-fields {
+  gap: 5px;
+  display: grid;
+}
+
+.item-flex-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.item-image-preview {
+  /* width: 64px;
+  height: 64px; */
+  object-fit: cover;
+  border: 1px solid gray;
+  border-radius: 5px;
+}
+
+.select-margin-top {
+  margin-top: 10px;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
