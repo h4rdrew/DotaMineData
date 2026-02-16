@@ -136,7 +136,7 @@ namespace ProcessaDados.App.Models.HttpResponse
         public decimal RON { get; set; }
         public decimal RSD { get; set; }
         public decimal RUB { get; set; }
-        public int RWF { get; set; }
+        public decimal RWF { get; set; }
         public decimal SAR { get; set; }
         public decimal SBD { get; set; }
         public decimal SCR { get; set; }
@@ -167,7 +167,7 @@ namespace ProcessaDados.App.Models.HttpResponse
         public decimal UYU { get; set; }
         public decimal UZS { get; set; }
         public decimal VES { get; set; }
-        public int VND { get; set; }
+        public decimal VND { get; set; }
         public decimal VUV { get; set; }
         public decimal WST { get; set; }
         public decimal XAF { get; set; }
