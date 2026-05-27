@@ -244,8 +244,9 @@ function App(): JSX.Element {
     setItemMenu(itensOrdenados) // Atualiza o estado com o array ordenado
   }
 
-  function createSteamHref(itemId: number): string {
-    const baseUrl = 'https://steamcommunity.com/market/search/?q=appid:570+prop_def_index:' + itemId
+  function createSteamHref(itemName: string): string {
+    // const baseUrl = 'https://steamcommunity.com/market/search/?q=appid:570+prop_def_index:' + itemId
+    const baseUrl = `https://steamcommunity.com/market/search/?q=${encodeURIComponent(itemName)}`
     return baseUrl
   }
 
@@ -842,10 +843,7 @@ function App(): JSX.Element {
             <DrawerHeader />
             <div className="info-item-container">
               <div className="item-selected">
-                <ExternalLink
-                  href={createSteamHref(itemSelectedId.current)}
-                  className="market-link"
-                >
+                <ExternalLink href={createSteamHref(itemSelected.current)} className="market-link">
                   <img src={steamLogo} alt="Steam" height="20px" />
                 </ExternalLink>
 
