@@ -72,6 +72,18 @@ public enum ItemRarity
 public enum Hero
 {
     None = 0,
+
+    #region Personas
+    [Description("Anti-Mage (Wei)")]
+    AntimagePersona1 = 1001,
+    [Description("Crystal Maiden (Wolf)")]
+    CrystalMaidenPersona1 = 1005,
+    [Description("Pudge (Toy Butcher)")]
+    PudgePersona1 = 1014,
+    [Description("Invoker (Kid)")]
+    InvokerPersona1 = 1074,
+    #endregion
+
     [Description("Anti-Mage")]
     Antimage = 1,
     [Description("Axe")]
@@ -325,5 +337,5 @@ public enum Hero
     [Description("Kez")]
     Kez = 145,
     [Description("Largo")]
-    Largo = 155
+    Largo = 155,
 }

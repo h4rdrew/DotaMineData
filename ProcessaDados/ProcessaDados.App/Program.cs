@@ -1,4 +1,6 @@
 ﻿using AngleSharp;
+using HtmlAgilityPack;
+using Microsoft.Playwright;
 using Newtonsoft.Json;
 using ProcessaDados.App;
 using ProcessaDados.App.Models;
@@ -6,9 +8,12 @@ using ProcessaDados.App.Models.Db;
 using ProcessaDados.App.Models.HttpResponse;
 using Serilog;
 using Simple.Sqlite;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
+using Cookie = System.Net.Cookie;
 
 // Configurando o Serilog
 Log.Logger = new LoggerConfiguration()
@@ -40,6 +45,7 @@ cnn.CreateTables()
    .Add<CollectData>()
    .Add<Item>()
    .Add<ServiceMethod>()
+   .Add<Heroes>()
    .Commit();
 
 // Popula os serviços que serão utilizados
@@ -71,11 +77,16 @@ if (exchangeRate == 0)
     return;
 }
 
-var dmarketTask = dmarket(cnn, exchangeRate, itens);
-var steamTask = steam(cnn, exchangeRate, itens, config?.SteamCookies ?? string.Empty);
+Log.Information("Obtendo sessão da Steam...");
+var steamCookies = await getSteamCookiesAsync();
+//var steamCookies = config?.SteamCookies ?? string.Empty;
+var steamTask = steam_new(cnn, exchangeRate, itens, steamCookies);
+//var dmarketTask = dmarket(cnn, exchangeRate, itens);
 
-await Task.WhenAll(steamTask, dmarketTask);
-
+await Task.WhenAll(
+    steamTask
+    //,dmarketTask
+);
 Log.Information("Captura de dados finalizada");
 
 var itensNaoCapturados = steamTask.Result;
@@ -86,7 +97,7 @@ if (itensNaoCapturados.Count > 0)
     "[STEAM] Primeira tentativa finalizada. {Count} itens pendentes.",
     itensNaoCapturados.Count
     );
-    await steamRetry(config, cnn, exchangeRate, itensNaoCapturados);
+    await steamRetry(cnn, exchangeRate, itensNaoCapturados, steamCookies);
 }
 
 WindowsToast.Notify("Processa dados finalizado com sucesso!");
@@ -102,6 +113,7 @@ Console.ReadLine();
 /// <param name="itens">Lista que contém os dados sobre os itens</param>
 /// <param name="steamCookies">Cookies para a requisição</param>
 /// <returns></returns>
+[Obsolete("Esse método está obsoleto devido à alteração na busca avançada do marketplace da Steam")]
 static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
 {
     // Número máximo de tentativas
@@ -116,6 +128,8 @@ static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate,
     var cookieContainer = new CookieContainer();
     using var handler = new HttpClientHandler { CookieContainer = cookieContainer };
     using var client = new HttpClient(handler);
+    // add referer header
+    client.DefaultRequestHeaders.Add("Referer", "https://steamcommunity.com/market/search?appid=570");
 
     var itensUnsolved = new List<Item>();
 
@@ -221,6 +235,218 @@ static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate,
 
     return itensUnsolved;
 }
+
+static async Task<List<Item>> steam_new(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
+{
+    // Número máximo de tentativas
+    // se a steam estiver chata, aumentar esse número para 10
+    const int maxRetries = 3;
+
+    var bulk_Data = new List<CollectData>();
+    var captureId = Guid.NewGuid();
+
+    const string baseUrl = "https://steamcommunity.com/market/search?appid=570";
+
+    var cookieContainer = new CookieContainer();
+    using var handler = new HttpClientHandler { CookieContainer = cookieContainer };
+    using var client = new HttpClient(handler);
+    // add referer header
+    client.DefaultRequestHeaders.Add("Referer", "https://steamcommunity.com/market/search?appid=570");
+
+    var steamRarityParamDic = populaDictionarySteamRarityParams();
+    var steamHeroParamDic = populaDictionarySteamHeroParams();
+
+    var itensUnsolved = new List<Item>();
+
+    foreach (var cookie in steamCookies.Split(';'))
+    {
+        var cookieParts = cookie.Split('=', 2);
+        if (cookieParts.Length == 2)
+        {
+            try
+            {
+                string name = cookieParts[0].Trim();
+                string value = cookieParts[1].Trim();
+                cookieContainer.Add(new Cookie(name, value, "/", "steamcommunity.com"));
+            }
+            catch (Exception)
+            {
+                Log.Error($"Erro ao adicionar cookie: {cookie}");
+                continue;
+            }
+        }
+    }
+
+    foreach (var item in itens)
+    {
+        // Função para fazer a requisição com tentativas
+        var attempt = 0;
+        var success = false;
+
+        while (attempt < maxRetries && !success)
+        {
+            //await Task.Delay(5000); // Delay caso a steam esteja chata
+            if (attempt > 0) await Task.Delay(2000);
+
+            try
+            {
+                // Monta o URL com o parâmetro de busca avançada para o item específico
+                var paramHero = steamHeroParamDic.ContainsKey(item.Hero) ? $"&category_570_Hero%5B%5D={steamHeroParamDic[item.Hero]}" : string.Empty;
+                var paramRarity = steamRarityParamDic.ContainsKey(item.Rarity) ? $"&category_570_Rarity%5B%5D={steamRarityParamDic[item.Rarity]}" : string.Empty;
+                var paramItemName = $"&q={Uri.EscapeDataString(item.Name.Trim())}";
+
+                // URL para o GET
+                var uri = new Uri($"{baseUrl}{paramHero}{paramRarity}{paramItemName}");
+
+                // Requisição GET com o cookie de autenticação
+                var response = await client.GetAsync(uri);
+                string htmlContent = await response.Content.ReadAsStringAsync();
+
+                // Carrega HTML
+                var doc = new HtmlDocument();
+                doc.LoadHtml(htmlContent);
+
+                // Lista dos links encontrados
+                var resultados = new List<HtmlNode>();
+
+                //// Seleciona todos <a> cujo id começa com "resultlink_"
+                //var links = doc.DocumentNode.SelectNodes("//a[starts-with(@id, 'resultlink_')]");
+
+                //var prices = new List<int>();
+
+                //if (links != null)
+                //{
+                //    foreach (var link in links)
+                //    {
+                //        // Busca span específico do nome
+                //        var span = link.SelectSingleNode(".//span[contains(@id, '_name')]");
+
+                //        if (span == null)
+                //            continue;
+
+                //        string nomeItemHtml = HtmlEntity.DeEntitize(span.InnerText).Trim();
+
+                //        if (!nomeItemHtml.Contains(item.Name, StringComparison.OrdinalIgnoreCase))
+                //            continue;
+
+                //        string itemHtml = link.InnerHtml;
+
+                //        var matches = Rx_DataPrice().Matches(itemHtml);
+
+                //        prices.AddRange(
+                //            matches
+                //                .Select(m => int.Parse(m.Groups[1].Value))
+                //                .Where(price => price > 0)
+                //        );
+                //    }
+                //}
+
+                // Seleciona todos os links
+                var links = doc.DocumentNode.SelectNodes("//a[contains(@href, '/market/listings/570/')]");
+
+                var prices = new List<decimal>();
+
+                if (links != null)
+                {
+                    foreach (var link in links)
+                    {
+                        // Nome do item
+                        var nameNode = link.SelectSingleNode(".//span[contains(@style, '--text-weight:var(--font-weight-heavy)')]");
+
+                        if (nameNode == null)
+                            continue;
+
+                        string nomeItemHtml = HtmlEntity.DeEntitize(nameNode.InnerText).Trim();
+
+                        // Comparação do nome
+                        if (!nomeItemHtml.Contains(item.Name, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        // Procura texto com "From R$"
+                        var priceNode = link.SelectSingleNode(".//span[contains(text(), 'From R$')]");
+
+                        if (priceNode == null)
+                            continue;
+
+                        string priceText = HtmlEntity.DeEntitize(priceNode.InnerText).Trim();
+
+                        // Exemplo: "From R$25.56"
+                        var match = Regex.Match(priceText, @"R\$(\d+[.,]?\d*)");
+
+                        if (!match.Success)
+                            continue;
+
+                        string value = match.Groups[1].Value.Replace(".", "").Replace(",", ".");
+
+                        if (decimal.TryParse(
+                            value,
+                            System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            out decimal price))
+                        {
+                            prices.Add(price);
+                        }
+                    }
+                }
+
+                // Obtém o menor valor
+                decimal lowestPrice = prices.Count != 0
+                    ? prices.Min() / 100m
+                    : 0;
+
+                if (lowestPrice > 0)
+                {
+                    bulk_Data.Add(new CollectData()
+                    {
+                        CaptureId = captureId,
+                        ItemId = item.ItemId,
+                        Price = lowestPrice,
+                    });
+
+                    Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] {lowestPrice:C} | {item.Name}");
+                    success = true;
+                }
+                else
+                {
+                    Log.Warning($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Nenhum preço válido encontrado: {item.Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Erro na tentativa {attempt + 1} para o item {item.Name}");
+            }
+
+            attempt++;
+
+            if (attempt == maxRetries)
+            {
+                Log.Error($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Máximo de tentativas atingido para o item {item.Name}");
+
+                itensUnsolved.Add(item);
+            }
+        }
+    }
+
+    cnn.BulkInsert(bulk_Data);
+
+    cnn.Insert(new ItemCaptured()
+    {
+        CaptureId = captureId,
+        ServiceType = ServiceType.STEAM,
+        DateTime = DateTime.Now,
+        ExchangeRate = exchangeRate,
+    });
+
+    Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Inseridos: {bulk_Data.Count} itens");
+
+    if (itensUnsolved.Count > 0)
+    {
+        Log.Warning($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Itens não capturados: {itensUnsolved.Count}");
+    }
+
+    return itensUnsolved;
+}
+
 
 /// <summary>
 /// Captura os IDs dos itens utilizando o Liquipedia
@@ -640,11 +866,10 @@ static async Task<decimal> capturaExchangeRateMethod2(ISqliteConnection cnn)
 }
 
 static async Task steamRetry(
-    ConfigJson? config,
     ISqliteConnection cnn,
     decimal exchangeRate,
-    List<Item> itensNaoCapturados
-    )
+    List<Item> itensNaoCapturados,
+    string steamCookies)
 {
     while (itensNaoCapturados.Count > 0)
     {
@@ -673,11 +898,11 @@ static async Task steamRetry(
             $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Reexecutando apenas para itens não capturados..."
         );
 
-        var retryResult = await steam(
+        var retryResult = await steam_new(
             cnn,
             exchangeRate,
             itensNaoCapturados,
-            config?.SteamCookies
+            steamCookies
         );
 
         if (retryResult.Count == 0)
@@ -787,6 +1012,305 @@ static async Task pegaHeroiIdPorItens(ISqliteConnection cnn, IEnumerable<Item> i
     {
         Log.Error("Erro ao atualizar os itens com o Hero correspondente.");
     }
+}
+
+static async Task<string> getSteamCookiesAsync()
+{
+    const string sessionFile = "steam-session.json";
+
+    using var playwright = await Playwright.CreateAsync();
+
+    bool hasSession = File.Exists(sessionFile);
+
+    var browser = await playwright.Chromium.LaunchAsync(new()
+    {
+        Headless = hasSession
+    });
+
+    IBrowserContext context;
+
+    if (!hasSession)
+    {
+        context = await browser.NewContextAsync();
+
+        var page = await context.NewPageAsync();
+
+        await page.GotoAsync("https://store.steampowered.com/login/");
+
+        Console.WriteLine("Faça login na Steam e pressione ENTER...");
+        Console.ReadLine();
+
+        // Remove sessão antiga antes de salvar
+        if (File.Exists(sessionFile))
+            File.Delete(sessionFile);
+
+        await context.StorageStateAsync(new()
+        {
+            Path = sessionFile
+        });
+    }
+
+    //const string sessionFile = "steam-session.json";
+
+    //using var playwright = await Playwright.CreateAsync();
+
+    //var browser = await playwright.Chromium.LaunchAsync(new()
+    //{
+    //    Headless = true
+    //});
+
+    //IBrowserContext context;
+
+    //if (!File.Exists(sessionFile))
+    //{
+    //    browser = await playwright.Chromium.LaunchAsync(new()
+    //    {
+    //        Headless = false,
+    //    });
+
+    //    context = await browser.NewContextAsync();
+    //    var page = await context.NewPageAsync();
+
+    //    await page.GotoAsync("https://store.steampowered.com/login/");
+
+    //    Console.WriteLine("Faça login na Steam e pressione ENTER...");
+    //    Console.ReadLine();
+
+    //    await context.StorageStateAsync(new()
+    //    {
+    //        Path = sessionFile
+    //    });
+    //}
+    else
+    {
+        context = await browser.NewContextAsync(new()
+        {
+            StorageStatePath = sessionFile,
+            Locale = "pt-BR",
+            TimezoneId = "America/Sao_Paulo",
+            UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+        });
+
+        // 🍪 Adiciona o cookie "bMarketOptOut=1;"
+        // Esse cookie desabilita a versão beta do market, que tem uma estrutura diferente e pode quebrar a captura de dados
+        //await context.AddCookiesAsync([new Microsoft.Playwright.Cookie
+        //{
+        //    Name = "bMarketOptOut",
+        //    Value = "1",
+        //    Domain = ".steamcommunity.com",
+        //    Path = "/"
+        //}]);
+        //await context.AddCookiesAsync([new Microsoft.Playwright.Cookie
+        //{
+        //    Name = "timezoneName",
+        //    Value = "America%2FSao_Paulo",
+        //    Domain = ".steamcommunity.com",
+        //    Path = "/"
+        //}]);
+
+        //// 🔍 VALIDAÇÃO AQUI
+        //var page = await context.NewPageAsync();
+        //// 🔑 navega direto no market
+        //await page.GotoAsync("https://steamcommunity.com/market/search?appid=570");
+
+        //await page.WaitForSelectorAsync("#searchResultsTable");
+
+        //// valida login aqui também (opcional)
+        //var isLogged = await page.Locator("#account_pulldown").CountAsync() > 0;
+
+        //if (!isLogged)
+        //{
+        //    Console.WriteLine("Sessão expirada. Refazendo login...");
+
+        //    await browser.CloseAsync();
+        //    File.Delete(sessionFile);
+
+        //    return await getSteamCookiesAsync(); // 🔁 tenta novamente
+        //}
+    }
+
+    // 🍪 Extrai cookies
+    //var cookies = await context.CookiesAsync();
+
+    //var cookieString = new StringBuilder();
+
+    //foreach (var cookie in cookies)
+    //{
+    //    cookieString.Append($"{cookie.Name}={cookie.Value}; ");
+    //}
+
+    // Adiciona um valor de cookie na mão "bMarketOptOut=1;"
+    //cookieString.Append("bMarketOptOut=1;");
+
+    //return cookieString.ToString();
+
+    var cookies = (await context.CookiesAsync())
+    .GroupBy(c => c.Name)
+    .Select(g => g.Last());
+
+    var cookieString = new StringBuilder();
+
+    foreach (var cookie in cookies)
+    {
+        cookieString.Append($"{cookie.Name}={cookie.Value}; ");
+    }
+
+    return cookieString.ToString();
+}
+
+static Dictionary<ItemRarity, string> populaDictionarySteamRarityParams()
+{
+    return new Dictionary<ItemRarity, string>
+    {
+        { ItemRarity.Ancient, "tag_Rarity_Ancient" },
+        { ItemRarity.Arcana, "tag_Rarity_Arcana" },
+        { ItemRarity.Common, "tag_Rarity_Common" },
+        { ItemRarity.Uncommon, "tag_Rarity_Uncommon" },
+        { ItemRarity.Immortal, "tag_Rarity_Immortal" },
+        { ItemRarity.Legendary, "tag_Rarity_Legendary" },
+        { ItemRarity.Mythical, "tag_Rarity_Mythical" },
+        { ItemRarity.Rare, "tag_Rarity_Rare" },
+    };
+}
+
+static Dictionary<Hero, string> populaDictionarySteamHeroParams()
+{
+    return new Dictionary<Hero, string>
+    {
+        // Personas
+        { Hero.AntimagePersona1, "tag_npc_dota_hero_antimage_persona1" },
+        { Hero.CrystalMaidenPersona1, "tag_npc_dota_hero_crystal_maiden_persona1" },
+        { Hero.PudgePersona1, "tag_npc_dota_hero_pudge_persona1" },
+        { Hero.InvokerPersona1, "tag_npc_dota_hero_invoker_persona1" },
+        // Heróis
+        { Hero.Abaddon, "tag_npc_dota_hero_abaddon" },
+        { Hero.Alchemist, "tag_npc_dota_hero_alchemist" },
+        { Hero.AncientApparition, "tag_npc_dota_hero_ancient_apparition" },
+        { Hero.Antimage, "tag_npc_dota_hero_antimage" },
+        { Hero.ArcWarden, "tag_npc_dota_hero_arc_warden" },
+        { Hero.Axe, "tag_npc_dota_hero_axe" },
+        { Hero.Bane, "tag_npc_dota_hero_bane" },
+        { Hero.Batrider, "tag_npc_dota_hero_batrider" },
+        { Hero.Beastmaster, "tag_npc_dota_hero_beastmaster" },
+        { Hero.Bloodseeker, "tag_npc_dota_hero_bloodseeker" },
+        { Hero.BountyHunter, "tag_npc_dota_hero_bounty_hunter" },
+        { Hero.Brewmaster, "tag_npc_dota_hero_brewmaster" },
+        { Hero.Bristleback, "tag_npc_dota_hero_bristleback" },
+        { Hero.Broodmother, "tag_npc_dota_hero_broodmother" },
+        { Hero.CentaurWarrunner, "tag_npc_dota_hero_centaur" },
+        { Hero.ChaosKnight, "tag_npc_dota_hero_chaos_knight" },
+        { Hero.Chen, "tag_npc_dota_hero_chen" },
+        { Hero.Clinkz, "tag_npc_dota_hero_clinkz" },
+        { Hero.CrystalMaiden, "tag_npc_dota_hero_crystal_maiden" },
+        { Hero.DarkSeer, "tag_npc_dota_hero_dark_seer" },
+        { Hero.DarkWillow, "tag_npc_dota_hero_dark_willow" },
+        { Hero.Dawnbreaker, "tag_npc_dota_hero_dawnbreaker" },
+        { Hero.Dazzle, "tag_npc_dota_hero_dazzle" },
+        { Hero.DeathProphet, "tag_npc_dota_hero_death_prophet" },
+        { Hero.Disruptor, "tag_npc_dota_hero_disruptor" },
+        { Hero.Doom, "tag_npc_dota_hero_doom_bringer" },
+        { Hero.DragonKnight, "tag_npc_dota_hero_dragon_knight" },
+        { Hero.DrowRanger, "tag_npc_dota_hero_drow_ranger" },
+        { Hero.EarthSpirit, "tag_npc_dota_hero_earth_spirit" },
+        { Hero.Earthshaker, "tag_npc_dota_hero_earthshaker" },
+        { Hero.ElderTitan, "tag_npc_dota_hero_elder_titan" },
+        { Hero.EmberSpirit, "tag_npc_dota_hero_ember_spirit" },
+        { Hero.Enchantress, "tag_npc_dota_hero_enchantress" },
+        { Hero.Enigma, "tag_npc_dota_hero_enigma" },
+        { Hero.FacelessVoid, "tag_npc_dota_hero_faceless_void" },
+        { Hero.NaturesProphet, "tag_npc_dota_hero_furion" },
+        { Hero.Grimstroke, "tag_npc_dota_hero_grimstroke" },
+        { Hero.Gyrocopter, "tag_npc_dota_hero_gyrocopter" },
+        { Hero.Hoodwink, "tag_npc_dota_hero_hoodwink" },
+        { Hero.Huskar, "tag_npc_dota_hero_huskar" },
+        { Hero.Invoker, "tag_npc_dota_hero_invoker" },
+        { Hero.Jakiro, "tag_npc_dota_hero_jakiro" },
+        { Hero.Juggernaut, "tag_npc_dota_hero_juggernaut" },
+        { Hero.KeeperOfTheLight, "tag_npc_dota_hero_keeper_of_the_light" },
+        { Hero.Kez, "tag_npc_dota_hero_kez" },
+        { Hero.Kunkka, "tag_npc_dota_hero_kunkka" },
+        { Hero.Largo, "tag_npc_dota_hero_largo" },
+        { Hero.LegionCommander, "tag_npc_dota_hero_legion_commander" },
+        { Hero.Leshrac, "tag_npc_dota_hero_leshrac" },
+        { Hero.Lich, "tag_npc_dota_hero_lich" },
+        { Hero.LifeStealer, "tag_npc_dota_hero_life_stealer" },
+        { Hero.Lina, "tag_npc_dota_hero_lina" },
+        { Hero.Lion, "tag_npc_dota_hero_lion" },
+        { Hero.LoneDruid, "tag_npc_dota_hero_lone_druid" },
+        { Hero.Luna, "tag_npc_dota_hero_luna" },
+        { Hero.Lycan, "tag_npc_dota_hero_lycan" },
+        { Hero.Magnus, "tag_npc_dota_hero_magnataur" },
+        { Hero.Marci, "tag_npc_dota_hero_marci" },
+        { Hero.Mars, "tag_npc_dota_hero_mars" },
+        { Hero.Medusa, "tag_npc_dota_hero_medusa" },
+        { Hero.Meepo, "tag_npc_dota_hero_meepo" },
+        { Hero.Mirana, "tag_npc_dota_hero_mirana" },
+        { Hero.MonkeyKing, "tag_npc_dota_hero_monkey_king" },
+        { Hero.Morphling, "tag_npc_dota_hero_morphling" },
+        { Hero.Muerta, "tag_npc_dota_hero_muerta" },
+        { Hero.NagaSiren, "tag_npc_dota_hero_naga_siren" },
+        { Hero.Necrophos, "tag_npc_dota_hero_necrolyte" },
+        { Hero.ShadowFiend, "tag_npc_dota_hero_nevermore" },
+        { Hero.NightStalker, "tag_npc_dota_hero_night_stalker" },
+        { Hero.NyxAssassin, "tag_npc_dota_hero_nyx_assassin" },
+        { Hero.OutworldDestroyer, "tag_npc_dota_hero_obsidian_destroyer" },
+        { Hero.OgreMagi, "tag_npc_dota_hero_ogre_magi" },
+        { Hero.Omniknight, "tag_npc_dota_hero_omniknight" },
+        { Hero.Oracle, "tag_npc_dota_hero_oracle" },
+        { Hero.Pangolier, "tag_npc_dota_hero_pangolier" },
+        { Hero.PhantomAssassin, "tag_npc_dota_hero_phantom_assassin" },
+        { Hero.PhantomLancer, "tag_npc_dota_hero_phantom_lancer" },
+        { Hero.Phoenix, "tag_npc_dota_hero_phoenix" },
+        { Hero.PrimalBeast, "tag_npc_dota_hero_primal_beast" },
+        { Hero.Puck, "tag_npc_dota_hero_puck" },
+        { Hero.Pudge, "tag_npc_dota_hero_pudge" },
+        { Hero.Pugna, "tag_npc_dota_hero_pugna" },
+        { Hero.Queenofpain, "tag_npc_dota_hero_queenofpain" },
+        { Hero.Clockwerk, "tag_npc_dota_hero_rattletrap" },
+        { Hero.Razor, "tag_npc_dota_hero_razor" },
+        { Hero.Riki, "tag_npc_dota_hero_riki" },
+        { Hero.Ringmaster, "tag_npc_dota_hero_ringmaster" },
+        { Hero.Rubick, "tag_npc_dota_hero_rubick" },
+        { Hero.SandKing, "tag_npc_dota_hero_sand_king" },
+        { Hero.ShadowDemon, "tag_npc_dota_hero_shadow_demon" },
+        { Hero.ShadowShaman, "tag_npc_dota_hero_shadow_shaman" },
+        { Hero.Timbersaw, "tag_npc_dota_hero_shredder" },
+        { Hero.Silencer, "tag_npc_dota_hero_silencer" },
+        { Hero.WraithKing, "tag_npc_dota_hero_skeleton_king" },
+        { Hero.SkywrathMage, "tag_npc_dota_hero_skywrath_mage" },
+        { Hero.Slardar, "tag_npc_dota_hero_slardar" },
+        { Hero.Slark, "tag_npc_dota_hero_slark" },
+        { Hero.Snapfire, "tag_npc_dota_hero_snapfire" },
+        { Hero.Sniper, "tag_npc_dota_hero_sniper" },
+        { Hero.Spectre, "tag_npc_dota_hero_spectre" },
+        { Hero.SpiritBreaker, "tag_npc_dota_hero_spirit_breaker" },
+        { Hero.StormSpirit, "tag_npc_dota_hero_storm_spirit" },
+        { Hero.Sven, "tag_npc_dota_hero_sven" },
+        { Hero.Techies, "tag_npc_dota_hero_techies" },
+        { Hero.TemplarAssassin, "tag_npc_dota_hero_templar_assassin" },
+        { Hero.Terrorblade, "tag_npc_dota_hero_terrorblade" },
+        { Hero.Tidehunter, "tag_npc_dota_hero_tidehunter" },
+        { Hero.Tinker, "tag_npc_dota_hero_tinker" },
+        { Hero.Tiny, "tag_npc_dota_hero_tiny" },
+        { Hero.TreantProtector, "tag_npc_dota_hero_treant" },
+        { Hero.TrollWarlord, "tag_npc_dota_hero_troll_warlord" },
+        { Hero.Tusk, "tag_npc_dota_hero_tusk" },
+        { Hero.Underlord, "tag_npc_dota_hero_abyssal_underlord" },
+        { Hero.Undying, "tag_npc_dota_hero_undying" },
+        { Hero.Ursa, "tag_npc_dota_hero_ursa" },
+        { Hero.Vengefulspirit, "tag_npc_dota_hero_vengefulspirit" },
+        { Hero.Venomancer, "tag_npc_dota_hero_venomancer" },
+        { Hero.Viper, "tag_npc_dota_hero_viper" },
+        { Hero.Visage, "tag_npc_dota_hero_visage" },
+        { Hero.VoidSpirit, "tag_npc_dota_hero_void_spirit" },
+        { Hero.Warlock, "tag_npc_dota_hero_warlock" },
+        { Hero.Weaver, "tag_npc_dota_hero_weaver" },
+        { Hero.Windranger, "tag_npc_dota_hero_windrunner" },
+        { Hero.WinterWyvern, "tag_npc_dota_hero_winter_wyvern" },
+        { Hero.Io, "tag_npc_dota_hero_wisp" },
+        { Hero.WitchDoctor, "tag_npc_dota_hero_witch_doctor" },
+        { Hero.Zeus, "tag_npc_dota_hero_zuus" }
+    };
 }
 
 partial class Program
