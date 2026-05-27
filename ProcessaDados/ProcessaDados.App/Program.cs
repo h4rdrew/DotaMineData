@@ -82,11 +82,11 @@ Log.Information("Obtendo sessão da Steam...");
 var steamCookies = await getSteamCookiesAsync();
 //var steamCookies = config?.SteamCookies ?? string.Empty;
 var steamTask = steam_playwright_fast(cnn, exchangeRate, itens, steamCookies);
-//var dmarketTask = dmarket(cnn, exchangeRate, itens);
+var dmarketTask = dmarket(cnn, exchangeRate, itens);
 
 await Task.WhenAll(
-    steamTask
-    //,dmarketTask
+    steamTask, 
+    dmarketTask
 );
 Log.Information("Captura de dados finalizada");
 
