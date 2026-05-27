@@ -8,6 +8,7 @@ using ProcessaDados.App.Models.Db;
 using ProcessaDados.App.Models.HttpResponse;
 using Serilog;
 using Simple.Sqlite;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -80,7 +81,7 @@ if (exchangeRate == 0)
 Log.Information("Obtendo sessão da Steam...");
 var steamCookies = await getSteamCookiesAsync();
 //var steamCookies = config?.SteamCookies ?? string.Empty;
-var steamTask = steam_new(cnn, exchangeRate, itens, steamCookies);
+var steamTask = steam_playwright_fast(cnn, exchangeRate, itens, steamCookies);
 //var dmarketTask = dmarket(cnn, exchangeRate, itens);
 
 await Task.WhenAll(
@@ -236,7 +237,7 @@ static async Task<List<Item>> steam(ISqliteConnection cnn, decimal exchangeRate,
     return itensUnsolved;
 }
 
-static async Task<List<Item>> steam_new(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
+static async Task<List<Item>> steam_httpClient(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
 {
     // Número máximo de tentativas
     // se a steam estiver chata, aumentar esse número para 10
@@ -447,6 +448,444 @@ static async Task<List<Item>> steam_new(ISqliteConnection cnn, decimal exchangeR
     return itensUnsolved;
 }
 
+static async Task<List<Item>> steam_playwright_slow(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
+{
+    const int maxRetries = 3;
+
+    var bulk_Data = new List<CollectData>();
+    var captureId = Guid.NewGuid();
+
+    const string baseUrl = "https://steamcommunity.com/market/search?appid=570";
+
+    var steamRarityParamDic = populaDictionarySteamRarityParams();
+    var steamHeroParamDic = populaDictionarySteamHeroParams();
+
+    var itensUnsolved = new List<Item>();
+
+    using var playwright = await Playwright.CreateAsync();
+
+    await using var browser = await playwright.Chromium.LaunchAsync(new()
+    {
+        Headless = true
+    });
+
+    var context = await browser.NewContextAsync(new()
+    {
+        StorageStatePath = "steam-session.json",
+        Locale = "pt-BR",
+        TimezoneId = "America/Sao_Paulo",
+        UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+    });
+
+    var cookies = new List<Microsoft.Playwright.Cookie>();
+
+    foreach (var cookie in steamCookies.Split(';'))
+    {
+        var cookieParts = cookie.Split('=', 2);
+
+        if (cookieParts.Length != 2)
+            continue;
+
+        try
+        {
+            cookies.Add(new Microsoft.Playwright.Cookie
+            {
+                Name = cookieParts[0].Trim(),
+                Value = cookieParts[1].Trim(),
+                Domain = ".steamcommunity.com",
+                Path = "/"
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, $"Erro ao adicionar cookie: {cookie}");
+        }
+    }
+
+    await context.AddCookiesAsync(cookies);
+
+    var page = await context.NewPageAsync();
+
+    foreach (var item in itens)
+    {
+        var attempt = 0;
+        var success = false;
+
+        while (attempt < maxRetries && !success)
+        {
+            try
+            {
+                if (attempt > 0)
+                    await Task.Delay(2000);
+
+                var paramHero = steamHeroParamDic.ContainsKey(item.Hero)
+                    ? $"&category_570_Hero%5B%5D={steamHeroParamDic[item.Hero]}"
+                    : string.Empty;
+
+                var paramRarity = steamRarityParamDic.ContainsKey(item.Rarity)
+                    ? $"&category_570_Rarity%5B%5D={steamRarityParamDic[item.Rarity]}"
+                    : string.Empty;
+
+                var paramItemName = $"&q={Uri.EscapeDataString(item.Name.Trim())}";
+
+                var url = $"{baseUrl}{paramHero}{paramRarity}{paramItemName}&l=english";
+
+                await page.GotoAsync(url, new()
+                {
+                    WaitUntil = WaitUntilState.NetworkIdle,
+                    Timeout = 60000
+                });
+
+                // espera preços renderizarem
+                //await page.WaitForTimeoutAsync(2000);
+
+                var links = await page.QuerySelectorAllAsync("a[href*='/market/listings/570/']");
+
+                var prices = new List<decimal>();
+
+                foreach (var link in links)
+                {
+                    try
+                    {
+                        var text = await link.InnerTextAsync();
+
+                        if (string.IsNullOrWhiteSpace(text))
+                            continue;
+
+                        if (!text.Contains(item.Name, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        /*
+                         Exemplos:
+                         From R$ 25,56
+                         A partir de R$ 25,56
+                        */
+
+                        var match = Regex.Match(
+                            text,
+                            @"R\$\s?([\d.,]+)");
+
+                        if (!match.Success)
+                            continue;
+
+                        var value = match.Groups[1].Value;
+
+                        // detecta formato
+                        if (value.Contains(",") && value.Contains("."))
+                        {
+                            // formato brasileiro: 1.234,56
+                            if (value.LastIndexOf(",") > value.LastIndexOf("."))
+                            {
+                                value = value.Replace(".", "").Replace(",", ".");
+                            }
+                            else
+                            {
+                                // formato americano: 1,234.56
+                                value = value.Replace(",", "");
+                            }
+                        }
+                        else if (value.Contains(","))
+                        {
+                            // assume decimal brasileiro
+                            value = value.Replace(",", ".");
+                        }
+
+                        if (decimal.TryParse(
+                            value,
+                            NumberStyles.Any,
+                            CultureInfo.InvariantCulture,
+                            out decimal price))
+                        {
+                            prices.Add(price);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, $"Erro ao processar link do item {item.Name}");
+                    }
+                }
+
+                decimal lowestPrice = prices.Count > 0
+                    ? prices.Min()
+                    : 0;
+
+                if (lowestPrice > 0)
+                {
+                    bulk_Data.Add(new CollectData()
+                    {
+                        CaptureId = captureId,
+                        ItemId = item.ItemId,
+                        Price = lowestPrice
+                    });
+
+                    Log.Information(
+                        $"[{nameof(ServiceMethod.ServiceType.STEAM)}] {lowestPrice:C} | {item.Name}");
+
+                    success = true;
+                }
+                else
+                {
+                    Log.Warning(
+                        $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Nenhum preço válido encontrado: {item.Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(
+                    ex,
+                    $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Erro na tentativa {attempt + 1} para o item {item.Name}");
+            }
+
+            attempt++;
+
+            if (attempt == maxRetries && !success)
+            {
+                Log.Error(
+                    $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Máximo de tentativas atingido para o item {item.Name}");
+
+                itensUnsolved.Add(item);
+            }
+        }
+    }
+
+    cnn.BulkInsert(bulk_Data);
+
+    cnn.Insert(new ItemCaptured()
+    {
+        CaptureId = captureId,
+        ServiceType = ServiceType.STEAM,
+        DateTime = DateTime.Now,
+        ExchangeRate = exchangeRate,
+    });
+
+    Log.Information($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Inseridos: {bulk_Data.Count} itens");
+
+    if (itensUnsolved.Count > 0)
+    {
+        Log.Warning($"[{nameof(ServiceMethod.ServiceType.STEAM)}] Itens não capturados: {itensUnsolved.Count}");
+    }
+
+    return itensUnsolved;
+}
+
+static async Task<List<Item>> steam_playwright_fast(ISqliteConnection cnn, decimal exchangeRate, IEnumerable<Item> itens, string steamCookies)
+{
+    const int maxRetries = 3;
+    const int maxConcurrency = 5;
+
+    var bulk_Data = new ConcurrentBag<CollectData>();
+    var itensUnsolved = new ConcurrentBag<Item>();
+
+    var captureId = Guid.NewGuid();
+
+    const string baseUrl = "https://steamcommunity.com/market/search?appid=570";
+
+    var steamRarityParamDic = populaDictionarySteamRarityParams();
+    var steamHeroParamDic = populaDictionarySteamHeroParams();
+
+    using var playwright = await Playwright.CreateAsync();
+
+    await using var browser = await playwright.Chromium.LaunchAsync(new()
+    {
+        Headless = true
+    });
+
+    var context = await browser.NewContextAsync(new()
+    {
+        StorageStatePath = "steam-session.json",
+        Locale = "pt-BR",
+        TimezoneId = "America/Sao_Paulo",
+        UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+    });
+
+    var cookies = new List<Microsoft.Playwright.Cookie>();
+
+    foreach (var cookie in steamCookies.Split(';'))
+    {
+        var cookieParts = cookie.Split('=', 2);
+
+        if (cookieParts.Length != 2)
+            continue;
+
+        cookies.Add(new Microsoft.Playwright.Cookie
+        {
+            Name = cookieParts[0].Trim(),
+            Value = cookieParts[1].Trim(),
+            Domain = ".steamcommunity.com",
+            Path = "/"
+        });
+    }
+
+    await context.AddCookiesAsync(cookies);
+
+    var semaphore = new SemaphoreSlim(maxConcurrency);
+
+    var tasks = itens.Select(async item =>
+    {
+        await semaphore.WaitAsync();
+
+        try
+        {
+            var page = await context.NewPageAsync();
+
+            try
+            {
+                var attempt = 0;
+                var success = false;
+
+                while (attempt < maxRetries && !success)
+                {
+                    try
+                    {
+                        if (attempt > 0)
+                            await Task.Delay(2000);
+
+                        var paramHero = steamHeroParamDic.ContainsKey(item.Hero)
+                            ? $"&category_570_Hero%5B%5D={steamHeroParamDic[item.Hero]}"
+                            : string.Empty;
+
+                        var paramRarity = steamRarityParamDic.ContainsKey(item.Rarity)
+                            ? $"&category_570_Rarity%5B%5D={steamRarityParamDic[item.Rarity]}"
+                            : string.Empty;
+
+                        var paramItemName = $"&q={Uri.EscapeDataString(item.Name.Trim())}";
+
+                        var url =
+                            $"{baseUrl}{paramHero}{paramRarity}{paramItemName}&l=english";
+
+                        await page.GotoAsync(url, new()
+                        {
+                            WaitUntil = WaitUntilState.DOMContentLoaded,
+                            Timeout = 60000
+                        });
+
+                        var texts = await page
+                            .Locator("a[href*='/market/listings/570/']")
+                            .AllInnerTextsAsync();
+
+                        var prices = new List<decimal>();
+
+                        foreach (var text in texts)
+                        {
+                            try
+                            {
+                                if (string.IsNullOrWhiteSpace(text))
+                                    continue;
+
+                                if (!text.Contains(item.Name,
+                                        StringComparison.OrdinalIgnoreCase))
+                                    continue;
+
+                                var match = Regex.Match(
+                                    text,
+                                    @"R\$\s?([\d.,]+)");
+
+                                if (!match.Success)
+                                    continue;
+
+                                var value = match.Groups[1].Value;
+
+                                if (value.Contains(",") && value.Contains("."))
+                                {
+                                    if (value.LastIndexOf(",") >
+                                        value.LastIndexOf("."))
+                                    {
+                                        value = value
+                                            .Replace(".", "")
+                                            .Replace(",", ".");
+                                    }
+                                    else
+                                    {
+                                        value = value.Replace(",", "");
+                                    }
+                                }
+                                else if (value.Contains(","))
+                                {
+                                    value = value.Replace(",", ".");
+                                }
+
+                                if (decimal.TryParse(
+                                        value,
+                                        NumberStyles.Any,
+                                        CultureInfo.InvariantCulture,
+                                        out decimal price))
+                                {
+                                    prices.Add(price);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Warning(ex,
+                                    $"Erro ao processar texto do item {item.Name}");
+                            }
+                        }
+
+                        decimal lowestPrice =
+                            prices.Count > 0
+                                ? prices.Min()
+                                : 0;
+
+                        if (lowestPrice > 0)
+                        {
+                            bulk_Data.Add(new CollectData()
+                            {
+                                CaptureId = captureId,
+                                ItemId = item.ItemId,
+                                Price = lowestPrice
+                            });
+
+                            Log.Information(
+                                $"[{nameof(ServiceMethod.ServiceType.STEAM)}] {lowestPrice:C} | {item.Name}");
+
+                            success = true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(
+                            ex,
+                            $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Erro tentativa {attempt + 1} item {item.Name}");
+                    }
+
+                    attempt++;
+                }
+
+                if (!success)
+                {
+                    itensUnsolved.Add(item);
+
+                    Log.Warning(
+                        $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Não capturado: {item.Name}");
+                }
+            }
+            finally
+            {
+                await page.CloseAsync();
+            }
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    });
+
+    await Task.WhenAll(tasks);
+
+    cnn.BulkInsert(bulk_Data.ToList());
+
+    cnn.Insert(new ItemCaptured()
+    {
+        CaptureId = captureId,
+        ServiceType = ServiceType.STEAM,
+        DateTime = DateTime.Now,
+        ExchangeRate = exchangeRate,
+    });
+
+    Log.Information(
+        $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Inseridos: {bulk_Data.Count}");
+
+    return itensUnsolved.ToList();
+}
 
 /// <summary>
 /// Captura os IDs dos itens utilizando o Liquipedia
@@ -898,7 +1337,7 @@ static async Task steamRetry(
             $"[{nameof(ServiceMethod.ServiceType.STEAM)}] Reexecutando apenas para itens não capturados..."
         );
 
-        var retryResult = await steam_new(
+        var retryResult = await steam_playwright_slow(
             cnn,
             exchangeRate,
             itensNaoCapturados,
