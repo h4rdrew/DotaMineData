@@ -1,9 +1,11 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import { Heroes } from '@renderer/interfaces'
 
 declare global {
   interface Window {
     electron: ElectronAPI
     api: {
+      getHeroes: () => Promise<Heroes[]> // Sem argumentos
       getItems: () => Promise<ItemDB[]> // Sem argumentos
       getItemData: (itemId: number) => Promise<DataDB[]> // Recebe itemId
       getItemDataDateNow: () => Promise<ItemDataDateNow[]> // Sem argumentos
@@ -15,9 +17,14 @@ declare global {
         rarity: number,
         hero: number
       ) => Promise<{ changes: number }> // Recebe itemId, itemName e owned (boolean)
-      fetchItemData: (
-        itemURL: string
-      ) => Promise<{ id: number; name: string; imageB64: string; rarity: string; hero: string }> // Recebe itemURL e retorna id e name
+      fetchItemData: (itemURL: string) => Promise<{
+        id: number
+        name: string
+        imageB64: string
+        rarity: string
+        hero: string
+        slot: string
+      }> // Recebe itemURL e retorna id e name
       saveBase64Image: (
         base64: string,
         fileName: string

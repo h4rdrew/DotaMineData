@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
-import { ItemDataDateNow, ItemDB, ItemHistoric, ItemMenu } from './interfaces'
+import { Heroes, ItemDataDateNow, ItemDB, ItemHistoric, ItemMenu } from './interfaces'
 import { ChartLine } from './components/chartLine.component'
 import steamLogo from './assets/steam_logo.png'
 import dmarketLogo from './assets/dmarket_logo.png'
 import liquipediaLogo from './assets/liquipedia_logo.png'
-// Importa o componente ExternalLink
 import ExternalLink from './components/ExternalLink'
 import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
@@ -31,12 +30,12 @@ import {
 } from '@mui/material'
 import BasicDatePicker from './components/basicDatePicker.component'
 import dayjs from 'dayjs'
-import { heroes } from './utils/constantes'
 import MenuIcon from '@mui/icons-material/Menu'
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import SettingsIcon from '@mui/icons-material/Settings'
+import { pegaHeroName } from './utils/heroi'
 
 const darkTheme = createTheme({
   palette: {
@@ -130,6 +129,7 @@ function App(): JSX.Element {
   // const datepickerRef = useRef<AirDatepicker | null>(null) // Armazena a instância do Datepicker
   const itemSelected = useRef<string>('')
   const itemSelectedId = useRef<number>(0)
+  const [heroes, setHeroes] = useState<Heroes[]>([])
 
   const [openDialog, setOpenDialog] = useState(false)
 
@@ -151,7 +151,18 @@ function App(): JSX.Element {
       }
     }
 
+    const fetchHeroes = async (): Promise<void> => {
+      try {
+        const heroes = await window.api.getHeroes()
+        setHeroes(heroes)
+      } catch (error) {
+        setHeroes([])
+        console.error('Erro ao buscar heróis:', error)
+      }
+    }
+
     fetchItems()
+    fetchHeroes()
   }, [])
 
   const buscaDadosItem = async (item: ItemDB): Promise<void> => {
@@ -599,10 +610,10 @@ function App(): JSX.Element {
                   </MenuItem>
                   <Divider></Divider>
                   {heroes
-                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .sort((a, b) => a.Name.localeCompare(b.Name))
                     .map((hero) => (
-                      <MenuItem key={hero.name} value={hero.id}>
-                        {hero.name}
+                      <MenuItem key={hero.HeroId} value={hero.HeroId}>
+                        {pegaHeroName(hero)}
                       </MenuItem>
                     ))}
                 </Select>

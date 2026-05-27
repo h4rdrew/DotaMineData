@@ -44,3 +44,10 @@ export interface ItemMenu {
   Data: ItemDataDateNow[]
   Hero: number
 }
+
+export interface Heroes {
+  Id: number
+  HeroId: number
+  Name: string
+  PersonaName: string | null
+}

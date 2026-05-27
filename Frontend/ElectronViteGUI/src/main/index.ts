@@ -117,9 +117,29 @@ ipcMain.handle('fetchItemData', async (_event, itemURL: string) => {
 
     // Raridade do item, exemplo: <a href="/dota2/Arcana" title="Arcana">
     const rarityMatch = text.match(
-      /<a href="\/dota2\/(Common|Uncommon|Rare|Mythical|Legendary|Ancient|Immortal|Arcana)" title="(Common|Uncommon|Rare|Mythical|Legendary|Ancient|Immortal|Arcana)">/
+      /<a href="\/dota2\/(Common|Uncommon|Rare|Mythical|Legendary|Ancient|Immortal|Arcana)"[^>]*title="(Common|Uncommon|Rare|Mythical|Legendary|Ancient|Immortal|Arcana)"/
     )
     const itemRarity = rarityMatch ? rarityMatch[1] : 'Unknown'
+
+    // Slot do item
+    // const slotMatch = text.match(/<b>\s*Slot:\s*<\/b>\s*([^<\n\r]+)/i)
+    // const slot = slotMatch?.[1]?.trim()
+
+    // Procura todos os <b>
+    const boldElements = document.querySelectorAll('b')
+
+    let slotValue: string | undefined = undefined
+
+    boldElements.forEach((b) => {
+      if (b.textContent?.trim() === 'Slot:') {
+        // Pega o próximo nó de texto após o <b>
+        const nextNode = b.nextSibling
+
+        if (nextNode) {
+          slotValue = nextNode.textContent?.trim()
+        }
+      }
+    })
 
     // Nome do heroi, exemplo: <div class="heroes-panel__hero-card"><img alt="" src="/commons/images/thumb/c/c4/Vengeful_Spirit_icon_dota2_gameasset.png/100px-Vengeful_Spirit_icon_dota2_gameasset.png" decoding="async" width="100" height="56" srcset="/commons/images/thumb/c/c4/Vengeful_Spirit_icon_dota2_gameasset.png/150px-Vengeful_Spirit_icon_dota2_gameasset.png 1.5x, /commons/images/thumb/c/c4/Vengeful_Spirit_icon_dota2_gameasset.png/199px-Vengeful_Spirit_icon_dota2_gameasset.png 2x"><div class="heroes-panel__hero-card__title"><a href="/dota2/Vengeful_Spirit" title="Vengeful Spirit">Vengeful Spirit</a></div></div>
     const heroElement = document.querySelector('.heroes-panel__hero-card__title a')
@@ -141,11 +161,33 @@ ipcMain.handle('fetchItemData', async (_event, itemURL: string) => {
       imageB64 = `data:${contentType};base64,${base64String}`
     }
 
-    return { id: itemId, name: itemName, imageB64: imageB64, rarity: itemRarity, hero: itemHero }
+    return {
+      id: itemId,
+      name: itemName,
+      imageB64: imageB64,
+      rarity: itemRarity,
+      hero: itemHero,
+      slot: slotValue
+    }
   } catch (error) {
     console.error('Error fetching item data:', error)
     throw error
   }
+})
+
+ipcMain.handle('getHeroes', async () => {
+  return new Promise((resolve, reject) => {
+    const db = new Sqlite3.Database('E:\\dotaItemCollectData.db', Sqlite3.OPEN_READONLY)
+
+    db.all('SELECT * FROM Heroes ORDER BY Name', [], (err, rows) => {
+      if (err) {
+        reject(err)
+      } else {
+        resolve(rows)
+      }
+    })
+    db.close()
+  })
 })
 
 ipcMain.handle('getitems', async () => {

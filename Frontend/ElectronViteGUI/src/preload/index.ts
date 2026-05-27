@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
+  getHeroes: (): Promise<unknown[]> => ipcRenderer.invoke('getHeroes'),
   getItems: (): Promise<unknown[]> => ipcRenderer.invoke('getitems'),
   getItemData: (itemId: number): Promise<unknown[]> => ipcRenderer.invoke('getItemData', itemId),
   getItemDataDateNow: (): Promise<unknown[]> => ipcRenderer.invoke('getItemDataDateNow'),
@@ -18,8 +19,14 @@ const api = {
     ipcRenderer.invoke('addNewItem', itemId, itemName, owned, rarity, hero),
   fetchItemData: (
     itemURL: string
-  ): Promise<{ id: number; name: string; imageB64: string; rarity: string; hero: string }> =>
-    ipcRenderer.invoke('fetchItemData', itemURL),
+  ): Promise<{
+    id: number
+    name: string
+    imageB64: string
+    rarity: string
+    hero: string
+    slot: string
+  }> => ipcRenderer.invoke('fetchItemData', itemURL),
   saveBase64Image: (
     base64: string,
     fileName: string

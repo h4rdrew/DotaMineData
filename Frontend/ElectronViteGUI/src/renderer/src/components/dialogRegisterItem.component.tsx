@@ -12,8 +12,10 @@ import {
   Select,
   Skeleton
 } from '@mui/material'
-import { getRarityColor, Hero, heroes } from '@renderer/utils/constantes'
-import React, { useState } from 'react'
+import { Heroes } from '@renderer/interfaces'
+import { getRarityColor } from '@renderer/utils/constantes'
+import { pegaHeroName } from '@renderer/utils/heroi'
+import React, { useEffect, useState } from 'react'
 
 interface DialogRegisterItemProps {
   open: boolean
@@ -31,6 +33,22 @@ type FormData = {
 }
 
 export default function AlertDialog({ open, onClose }: DialogRegisterItemProps): JSX.Element {
+  const [heroes, setHeroes] = useState<Heroes[]>([])
+
+  useEffect(() => {
+    const fetchHeroes = async (): Promise<void> => {
+      try {
+        const heroes = await window.api.getHeroes()
+        setHeroes(heroes)
+      } catch (error) {
+        setHeroes([])
+        console.error('Erro ao buscar heróis:', error)
+      }
+    }
+
+    fetchHeroes()
+  }, [])
+
   const [form, setForm] = useState<FormData>({
     id: '',
     name: '',
@@ -116,7 +134,7 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
           name: data.name,
           imageB64: data.imageB64,
           rarity: data.rarity,
-          hero: getHeroByName(data.hero).id
+          hero: getHeroByName(data.hero, data.slot).HeroId
         })
       })
       .catch((error) => {
@@ -153,9 +171,26 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
     return ['Common', 'Uncommon', 'Rare', 'Mythical', 'Legendary', 'Ancient', 'Immortal', 'Arcana']
   }
 
-  function getHeroByName(heroName: string): Hero {
-    const hero = heroes.find((h) => h.name.toLowerCase() === heroName.trim().toLowerCase())
-    return hero ? hero : { id: 0, name: 'Unknown' }
+  function getHeroByName(heroName: string, slot?: string): Heroes {
+    const normalizedName = heroName.trim().toLowerCase()
+
+    // Se o slot contém "(Persona)", procura primeiro um hero com PersonaName preenchido
+    if (slot?.toLocaleLowerCase().includes('(persona)')) {
+      const personaHero = heroes.find(
+        (h) => h.Name.toLowerCase() === normalizedName && h.PersonaName !== null
+      )
+
+      if (personaHero) {
+        return personaHero
+      }
+    }
+
+    // Hero normal
+    const hero = heroes.find(
+      (h) => h.Name.toLowerCase() === normalizedName && h.PersonaName === null
+    )
+
+    return hero ? hero : { Id: 0, HeroId: 0, Name: 'Unknown', PersonaName: '' }
   }
 
   function clearForm(): void {
@@ -250,10 +285,10 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
                     onChange={handleSelectChange('hero')}
                   >
                     {heroes
-                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .sort((a, b) => a.Name.localeCompare(b.Name))
                       .map((hero) => (
-                        <MenuItem key={hero.name} value={hero.id}>
-                          {hero.name}
+                        <MenuItem key={hero.HeroId} value={hero.HeroId}>
+                          {pegaHeroName(hero)}
                         </MenuItem>
                       ))}
                   </Select>
