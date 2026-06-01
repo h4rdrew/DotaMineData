@@ -82,11 +82,11 @@ Log.Information("Obtendo sessão da Steam...");
 var steamCookies = await getSteamCookiesAsync();
 //var steamCookies = config?.SteamCookies ?? string.Empty;
 var steamTask = steam_playwright_fast(cnn, exchangeRate, itens, steamCookies);
-var dmarketTask = dmarket(cnn, exchangeRate, itens);
+//var dmarketTask = dmarket(cnn, exchangeRate, itens);
 
 await Task.WhenAll(
-    steamTask, 
-    dmarketTask
+    steamTask
+//,dmarketTask
 );
 Log.Information("Captura de dados finalizada");
 
@@ -1456,23 +1456,37 @@ static async Task pegaHeroiIdPorItens(ISqliteConnection cnn, IEnumerable<Item> i
 static async Task<string> getSteamCookiesAsync()
 {
     const string sessionFile = "steam-session.json";
+    bool hasSessionFile = File.Exists(sessionFile);
 
     using var playwright = await Playwright.CreateAsync();
-
-    bool hasSession = File.Exists(sessionFile);
-
+    
     var browser = await playwright.Chromium.LaunchAsync(new()
     {
-        Headless = hasSession
+        Headless = false
     });
 
-    IBrowserContext context;
+    // Checa se tem sessão e se está ativa
 
-    if (!hasSession)
+    var context = await browser.NewContextAsync(new()
     {
-        context = await browser.NewContextAsync();
+        StorageStatePath = sessionFile,
+        Locale = "pt-BR",
+        TimezoneId = "America/Sao_Paulo",
+        UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+    });
 
-        var page = await context.NewPageAsync();
+    // 🔍 VALIDAÇÃO AQUI
+    var page = await context.NewPageAsync();
+
+    // 🔑 navega para a página de histórico de compras, que exige login, para validar se a sessão é válida
+    await page.GotoAsync("https://store.steampowered.com/account/history/");
+
+    // Se a página tiver uma tabela de histórico de compras, é porque a sessão é válida e o usuário está logado
+    bool isLogged = await page.Locator("#main_content > table").CountAsync() > 0;
+
+    if (!isLogged)
+    {
+        page = await context.NewPageAsync();
 
         await page.GotoAsync("https://store.steampowered.com/login/");
 
@@ -1488,38 +1502,6 @@ static async Task<string> getSteamCookiesAsync()
             Path = sessionFile
         });
     }
-
-    //const string sessionFile = "steam-session.json";
-
-    //using var playwright = await Playwright.CreateAsync();
-
-    //var browser = await playwright.Chromium.LaunchAsync(new()
-    //{
-    //    Headless = true
-    //});
-
-    //IBrowserContext context;
-
-    //if (!File.Exists(sessionFile))
-    //{
-    //    browser = await playwright.Chromium.LaunchAsync(new()
-    //    {
-    //        Headless = false,
-    //    });
-
-    //    context = await browser.NewContextAsync();
-    //    var page = await context.NewPageAsync();
-
-    //    await page.GotoAsync("https://store.steampowered.com/login/");
-
-    //    Console.WriteLine("Faça login na Steam e pressione ENTER...");
-    //    Console.ReadLine();
-
-    //    await context.StorageStateAsync(new()
-    //    {
-    //        Path = sessionFile
-    //    });
-    //}
     else
     {
         context = await browser.NewContextAsync(new()
@@ -1539,50 +1521,9 @@ static async Task<string> getSteamCookiesAsync()
         //    Domain = ".steamcommunity.com",
         //    Path = "/"
         //}]);
-        //await context.AddCookiesAsync([new Microsoft.Playwright.Cookie
-        //{
-        //    Name = "timezoneName",
-        //    Value = "America%2FSao_Paulo",
-        //    Domain = ".steamcommunity.com",
-        //    Path = "/"
-        //}]);
-
-        //// 🔍 VALIDAÇÃO AQUI
-        //var page = await context.NewPageAsync();
-        //// 🔑 navega direto no market
-        //await page.GotoAsync("https://steamcommunity.com/market/search?appid=570");
-
-        //await page.WaitForSelectorAsync("#searchResultsTable");
-
-        //// valida login aqui também (opcional)
-        //var isLogged = await page.Locator("#account_pulldown").CountAsync() > 0;
-
-        //if (!isLogged)
-        //{
-        //    Console.WriteLine("Sessão expirada. Refazendo login...");
-
-        //    await browser.CloseAsync();
-        //    File.Delete(sessionFile);
-
-        //    return await getSteamCookiesAsync(); // 🔁 tenta novamente
-        //}
     }
 
     // 🍪 Extrai cookies
-    //var cookies = await context.CookiesAsync();
-
-    //var cookieString = new StringBuilder();
-
-    //foreach (var cookie in cookies)
-    //{
-    //    cookieString.Append($"{cookie.Name}={cookie.Value}; ");
-    //}
-
-    // Adiciona um valor de cookie na mão "bMarketOptOut=1;"
-    //cookieString.Append("bMarketOptOut=1;");
-
-    //return cookieString.ToString();
-
     var cookies = (await context.CookiesAsync())
     .GroupBy(c => c.Name)
     .Select(g => g.Last());
