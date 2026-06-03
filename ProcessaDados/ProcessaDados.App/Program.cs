@@ -84,7 +84,7 @@ var steamTask = steam_playwright_fast(cnn, exchangeRate, itens, steamCookies);
 var dmarketTask = dmarket(cnn, exchangeRate, itens);
 
 await Task.WhenAll(
-    steamTask, 
+    steamTask,
     dmarketTask
 );
 Log.Information("Captura de dados finalizada");
@@ -476,32 +476,32 @@ static async Task<List<Item>> steam_playwright_slow(ISqliteConnection cnn, decim
         UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
     });
 
-    var cookies = new List<Microsoft.Playwright.Cookie>();
+    //var cookies = new List<Microsoft.Playwright.Cookie>();
 
-    foreach (var cookie in steamCookies.Split(';'))
-    {
-        var cookieParts = cookie.Split('=', 2);
+    //foreach (var cookie in steamCookies.Split(';'))
+    //{
+    //    var cookieParts = cookie.Split('=', 2);
 
-        if (cookieParts.Length != 2)
-            continue;
+    //    if (cookieParts.Length != 2)
+    //        continue;
 
-        try
-        {
-            cookies.Add(new Microsoft.Playwright.Cookie
-            {
-                Name = cookieParts[0].Trim(),
-                Value = cookieParts[1].Trim(),
-                Domain = ".steamcommunity.com",
-                Path = "/"
-            });
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, $"Erro ao adicionar cookie: {cookie}");
-        }
-    }
+    //    try
+    //    {
+    //        cookies.Add(new Microsoft.Playwright.Cookie
+    //        {
+    //            Name = cookieParts[0].Trim(),
+    //            Value = cookieParts[1].Trim(),
+    //            Domain = ".steamcommunity.com",
+    //            Path = "/"
+    //        });
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        Log.Warning(ex, $"Erro ao adicionar cookie: {cookie}");
+    //    }
+    //}
 
-    await context.AddCookiesAsync(cookies);
+    //await context.AddCookiesAsync(cookies);
 
     var page = await context.NewPageAsync();
 
@@ -697,25 +697,25 @@ static async Task<List<Item>> steam_playwright_fast(ISqliteConnection cnn, decim
         UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
     });
 
-    var cookies = new List<Microsoft.Playwright.Cookie>();
+    //var cookies = new List<Microsoft.Playwright.Cookie>();
 
-    foreach (var cookie in steamCookies.Split(';'))
-    {
-        var cookieParts = cookie.Split('=', 2);
+    //foreach (var cookie in steamCookies.Split(';'))
+    //{
+    //    var cookieParts = cookie.Split('=', 2);
 
-        if (cookieParts.Length != 2)
-            continue;
+    //    if (cookieParts.Length != 2)
+    //        continue;
 
-        cookies.Add(new Microsoft.Playwright.Cookie
-        {
-            Name = cookieParts[0].Trim(),
-            Value = cookieParts[1].Trim(),
-            Domain = ".steamcommunity.com",
-            Path = "/"
-        });
-    }
+    //    cookies.Add(new Microsoft.Playwright.Cookie
+    //    {
+    //        Name = cookieParts[0].Trim(),
+    //        Value = cookieParts[1].Trim(),
+    //        Domain = ".steamcommunity.com",
+    //        Path = "/"
+    //    });
+    //}
 
-    await context.AddCookiesAsync(cookies);
+    //await context.AddCookiesAsync(cookies);
 
     var semaphore = new SemaphoreSlim(maxConcurrency);
 
@@ -1458,7 +1458,7 @@ static async Task<string> getSteamCookiesAsync()
     bool hasSessionFile = File.Exists(sessionFile);
 
     using var playwright = await Playwright.CreateAsync();
-    
+
     var browser = await playwright.Chromium.LaunchAsync(new()
     {
         Headless = false
