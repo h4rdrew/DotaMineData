@@ -9,7 +9,6 @@ using ProcessaDados.App.Models.HttpResponse;
 using Serilog;
 using Simple.Sqlite;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text;
