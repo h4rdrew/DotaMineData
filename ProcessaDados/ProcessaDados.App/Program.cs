@@ -1469,7 +1469,7 @@ static async Task<string> getSteamCookiesAsync()
 
     var context = await browser.NewContextAsync(new()
     {
-        StorageStatePath = sessionFile,
+        StorageStatePath = hasSessionFile ? sessionFile : null,
         Locale = "pt-BR",
         TimezoneId = "America/Sao_Paulo",
         UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
@@ -1484,14 +1484,17 @@ static async Task<string> getSteamCookiesAsync()
     // Se a página tiver uma tabela de histórico de compras, é porque a sessão é válida e o usuário está logado
     bool isLogged = await page.Locator("#main_content > table").CountAsync() > 0;
 
+    Console.WriteLine("Cheque se está tudo certo e pressione ENTER...");
+    Console.ReadLine();
+
     if (!isLogged)
     {
         page = await context.NewPageAsync();
 
         await page.GotoAsync("https://store.steampowered.com/login/");
 
-        Console.WriteLine("Faça login na Steam e pressione ENTER...");
-        Console.ReadLine();
+        //Console.WriteLine("Faça login na Steam e pressione ENTER...");
+        //Console.ReadLine();
 
         // Remove sessão antiga antes de salvar
         if (File.Exists(sessionFile))
@@ -1506,7 +1509,7 @@ static async Task<string> getSteamCookiesAsync()
     {
         context = await browser.NewContextAsync(new()
         {
-            StorageStatePath = sessionFile,
+            StorageStatePath = hasSessionFile ? sessionFile : null,
             Locale = "pt-BR",
             TimezoneId = "America/Sao_Paulo",
             UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
