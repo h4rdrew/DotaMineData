@@ -454,7 +454,7 @@ static async Task<List<Item>> steam_playwright_slow(ISqliteConnection cnn, decim
     var bulk_Data = new List<CollectData>();
     var captureId = Guid.NewGuid();
 
-    const string baseUrl = "https://steamcommunity.com/market/search?appid=570";
+    const string baseUrl = "https://steamcommunity.com/market/search?";
 
     var steamRarityParamDic = populaDictionarySteamRarityParams();
     var steamHeroParamDic = populaDictionarySteamHeroParams();
@@ -518,14 +518,14 @@ static async Task<List<Item>> steam_playwright_slow(ISqliteConnection cnn, decim
                     await Task.Delay(2000);
 
                 var paramHero = steamHeroParamDic.ContainsKey(item.Hero)
-                    ? $"&category_570_Hero%5B%5D={steamHeroParamDic[item.Hero]}"
+                    ? $"&category_Hero={steamHeroParamDic[item.Hero]}"
                     : string.Empty;
 
                 var paramRarity = steamRarityParamDic.ContainsKey(item.Rarity)
-                    ? $"&category_570_Rarity%5B%5D={steamRarityParamDic[item.Rarity]}"
+                    ? $"&category_Rarity={steamRarityParamDic[item.Rarity]}"
                     : string.Empty;
 
-                var paramItemName = $"&q={Uri.EscapeDataString(item.Name.Trim())}";
+                var paramItemName = $"&appid=570&q={Uri.EscapeDataString(item.Name.Trim())}";
 
                 var url = $"{baseUrl}{paramHero}{paramRarity}{paramItemName}&l=english";
 
@@ -1441,7 +1441,7 @@ static async Task<string> getSteamCookiesAsync()
 
     var browser = await playwright.Chromium.LaunchAsync(new()
     {
-        Headless = false
+        Headless = true
     });
 
     // Checa se tem sessão e se está ativa
@@ -1463,8 +1463,8 @@ static async Task<string> getSteamCookiesAsync()
     // Se a página tiver uma tabela de histórico de compras, é porque a sessão é válida e o usuário está logado
     bool isLogged = await page.Locator("#main_content > table").CountAsync() > 0;
 
-    Console.WriteLine("Cheque se está tudo certo e pressione ENTER...");
-    Console.ReadLine();
+    //Console.WriteLine("Cheque se está tudo certo e pressione ENTER...");
+    //Console.ReadLine();
 
     if (!isLogged)
     {
