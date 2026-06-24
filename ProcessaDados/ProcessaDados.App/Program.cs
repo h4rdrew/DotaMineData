@@ -1461,7 +1461,7 @@ static async Task<string> getSteamCookiesAsync()
 
     var browser = await playwright.Chromium.LaunchAsync(new()
     {
-        Headless = true
+        Headless = false
     });
 
     // Checa se tem sessão e se está ativa
@@ -1483,8 +1483,8 @@ static async Task<string> getSteamCookiesAsync()
     // Se a página tiver uma tabela de histórico de compras, é porque a sessão é válida e o usuário está logado
     bool isLogged = await page.Locator("#main_content > table").CountAsync() > 0;
 
-    //Console.WriteLine("Cheque se está tudo certo e pressione ENTER...");
-    //Console.ReadLine();
+    Console.WriteLine("Cheque se está tudo certo e pressione ENTER...");
+    Console.ReadLine();
 
     if (!isLogged)
     {
