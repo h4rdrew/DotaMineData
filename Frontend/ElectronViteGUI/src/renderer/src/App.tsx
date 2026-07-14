@@ -762,7 +762,7 @@ function App(): JSX.Element {
                           <img
                             id="result_0_image"
                             key={item.ItemId}
-                            src={`file:///E:/DotaMine/img/${item.ItemId}.png`} // Usa fallback se a imagem não existir
+                            src={`dotamine-image://item/${item.ItemId}.png`}
                             style={{ borderColor: '#D2D2D2' }}
                             className="market_listing_item_img"
                             alt=""

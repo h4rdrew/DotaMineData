@@ -5,7 +5,9 @@
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts"
-, "src/renderer/src/interfaces.tsx"  ],
+, "src/renderer/src/interfaces.tsx",
+    "src/shared/**/*"
+  ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",

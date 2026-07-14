@@ -1,4 +1,6 @@
-export interface ItemDB {
+import type { Hero, Item, ItemHistory, ItemPrice } from '../../shared/contracts'
+
+export interface ItemDB extends Item {
   Id: number
   ItemId: number
   Name: string
@@ -13,13 +15,7 @@ export interface DataDB {
   CaptureId: string
 }
 
-export interface ItemHistoric {
-  ItemId: number
-  Price: number
-  ServiceType: number
-  ExchangeRate: number
-  DateTime: string
-}
+export type ItemHistoric = ItemHistory
 
 export interface ChartsLineProps {
   labels: string[]
@@ -30,11 +26,7 @@ export interface ChartsPieProps {
   data: ItemDataDateNow[] | null
 }
 
-export interface ItemDataDateNow {
-  ItemId: number
-  Price: number
-  ServiceType: number
-}
+export type ItemDataDateNow = ItemPrice
 
 export interface ItemMenu {
   Id: number
@@ -45,9 +37,4 @@ export interface ItemMenu {
   Hero: number
 }
 
-export interface Heroes {
-  Id: number
-  HeroId: number
-  Name: string
-  PersonaName: string | null
-}
+export type Heroes = Hero

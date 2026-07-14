@@ -13,7 +13,7 @@ import {
   Skeleton
 } from '@mui/material'
 import { Heroes } from '@renderer/interfaces'
-import { getRarityColor } from '@renderer/utils/constantes'
+import { getRarityColor, getRarityNames } from '@renderer/utils/constantes'
 import { pegaHeroName } from '@renderer/utils/heroi'
 import React, { useEffect, useState } from 'react'
 
@@ -79,42 +79,31 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
       })
 
       // se for o campo 'rarity', atualizar a cor do select
-      if (campo === 'rarity') {
-        const selectElement = document.getElementById('rarity-select')
-        if (selectElement) {
-          selectElement.style.color = getRarityColor(String(e.target.value))
-        }
-      }
     }
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
 
     try {
-      window.api
-        .addNewItem(
+      const operations: Promise<unknown>[] = [
+        window.api.addNewItem(
           Number(form.id),
           String(form.name),
           Boolean(form.owned),
           Number(getRarityId(form.rarity)),
           Number(form.hero)
         )
-        .catch((error) => {
-          console.error('Erro ao adicionar novo item:', error)
-        })
+      ]
 
       // Salva a imagem (base64) localmente como PNG (E:\\DotaMine\\img)
       if (form.imageB64) {
-        const fileName = `${form.id}.png`
-
-        window.api.saveBase64Image(form.imageB64, fileName).catch((err) => {
-          console.error('Erro ao salvar imagem', err)
-        })
+        operations.push(window.api.saveBase64Image(form.imageB64, `${form.id}.png`))
       }
 
       // Limpa o formulário e fecha o diálogo
+      await Promise.all(operations)
       clearForm()
-      // onClose()
+      onClose()
     } catch (error) {
       console.error('Erro ao processar o formulário:', error)
     }
@@ -165,10 +154,6 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
       default:
         return 0
     }
-  }
-
-  function getRarityNames(): string[] {
-    return ['Common', 'Uncommon', 'Rare', 'Mythical', 'Legendary', 'Ancient', 'Immortal', 'Arcana']
   }
 
   function getHeroByName(heroName: string, slot?: string): Heroes {
@@ -303,6 +288,7 @@ export default function AlertDialog({ open, onClose }: DialogRegisterItemProps):
                     value={form.rarity}
                     label="Rarity"
                     onChange={handleSelectChange('rarity')}
+                    sx={{ color: getRarityColor(form.rarity) }}
                   >
                     {getRarityNames().map((rarity) => (
                       <MenuItem
