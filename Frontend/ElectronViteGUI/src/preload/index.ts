@@ -1,12 +1,13 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { DesktopApi } from '../shared/contracts'
 
 // Custom APIs for renderer
-const api = {
-  getHeroes: (): Promise<unknown[]> => ipcRenderer.invoke('getHeroes'),
-  getItems: (): Promise<unknown[]> => ipcRenderer.invoke('getitems'),
-  getItemData: (itemId: number): Promise<unknown[]> => ipcRenderer.invoke('getItemData', itemId),
-  getItemDataDateNow: (): Promise<unknown[]> => ipcRenderer.invoke('getItemDataDateNow'),
+const api: DesktopApi = {
+  getHeroes: () => ipcRenderer.invoke('getHeroes'),
+  getItems: () => ipcRenderer.invoke('getitems'),
+  getItemData: (itemId) => ipcRenderer.invoke('getItemData', itemId),
+  getItemDataDateNow: () => ipcRenderer.invoke('getItemDataDateNow'),
   updateItemPurchased: (itemId: number, purchased: boolean): Promise<{ changes: number }> =>
     ipcRenderer.invoke('updateItemPurchased', itemId, purchased),
   addNewItem: (
@@ -17,25 +18,11 @@ const api = {
     hero: number
   ): Promise<{ changes: number }> =>
     ipcRenderer.invoke('addNewItem', itemId, itemName, owned, rarity, hero),
-  fetchItemData: (
-    itemURL: string
-  ): Promise<{
-    id: number
-    name: string
-    imageB64: string
-    rarity: string
-    hero: string
-    slot: string
-  }> => ipcRenderer.invoke('fetchItemData', itemURL),
-  saveBase64Image: (
-    base64: string,
-    fileName: string
-  ): Promise<{ success: boolean; path: string }> =>
+  fetchItemData: (itemURL) => ipcRenderer.invoke('fetchItemData', itemURL),
+  saveBase64Image: (base64: string, fileName: string): Promise<{ success: true; path: string }> =>
     ipcRenderer.invoke('saveBase64Image', base64, fileName),
-  getItemDataByDate: (date: string): Promise<unknown[]> =>
-    ipcRenderer.invoke('getItemDataByDate', date),
-  getItemsByHero: (heroId: number): Promise<unknown[]> =>
-    ipcRenderer.invoke('getItemsByHero', heroId)
+  getItemDataByDate: (date) => ipcRenderer.invoke('getItemDataByDate', date),
+  getItemsByHero: (heroId) => ipcRenderer.invoke('getItemsByHero', heroId)
 }
 
 const eShell = {
