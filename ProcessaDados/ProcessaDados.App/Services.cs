@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
-using DmarketItem = ProcessaDados.App.Models.HttpResponse.Object;
+using DmarketItem = ProcessaDados.App.Models.HttpResponse.Offer;
 
 namespace ProcessaDados.App.Services;
 
@@ -36,8 +36,8 @@ internal sealed class ExchangeRateService : IDisposable
 
 internal sealed class DmarketCollector(CaptureRepository repository) : IDisposable
 {
-    private const string BaseUrl = "https://api.dmarket.com/exchange/v1/market/items?side=market&orderBy=price&orderDir=asc&title=";
-    private const string Query = "&priceFrom=0&priceTo=0&treeFilters=rarity%5B%5D=arcana,rarity%5B%5D=immortal&gameId=9a92&types=dmarket&myFavorites=false&cursor=&limit=100&currency=USD&platform=browser&isLoggedIn=true";
+    private const string BaseUrl = "https://api.dmarket.com/exchange/v1/market/items/v2?orderBy=price&orderDir=asc&title=";
+    private const string Query = "&priceFrom=0&priceTo=0&treeFilters=rarity%5B%5D=arcana,rarity%5B%5D=immortal&gameId=9a92&myFavorites=false&currency=USD&platform=browser&isLoggedIn=true&pageSize=100";
     private static readonly string[] Qualities = ["Normal", "Genuine", "Elder", "Unusual", "Self-Made", "Inscribed", "Cursed", "Heroic", "Favored", "Ascendant", "Autographed", "Legacy", "Exalted", "Frozen", "Corrupted", "Auspicious", "Infused"];
     private readonly HttpClient _client = ExchangeRateService.CreateClient();
 
@@ -49,17 +49,37 @@ internal sealed class DmarketCollector(CaptureRepository repository) : IDisposab
         {
             try
             {
-                using var response = await _client.GetAsync(BaseUrl + Uri.EscapeDataString(item.Name.Trim()) + Query);
-                if (!response.IsSuccessStatusCode) { Log.Warning("[DMARKET] Erro ({StatusCode}): {Item}", response.StatusCode, item.Name); continue; }
-                var result = JsonConvert.DeserializeObject<DmarketResponse>(await response.Content.ReadAsStringAsync());
-                var match = result is null ? null : FindExactItem(item.Name, result.objects);
-                if (match?.price?.USD is null || !decimal.TryParse(match.price.USD, NumberStyles.Number, CultureInfo.InvariantCulture, out var cents))
-                { Log.Warning("[DMARKET] Item não encontrado: [{ItemId}] {Item}", item.ItemId, item.Name); continue; }
-                var price = Math.Round(cents * exchangeRate / 100, 2);
-                captured.Add(new CollectData { CaptureId = captureId, ItemId = item.ItemId, Price = price });
+                var requestUri = BaseUrl + Uri.EscapeDataString(item.Name.Trim()) + Query;
+                using var response = await _client.GetAsync(requestUri);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Log.Warning("[DMARKET] Erro ({StatusCode}): {Item}", response.StatusCode, item.Name);
+                    continue;
+                }
+
+                var result = JsonConvert.DeserializeObject<DmarketResponseV2>(await response.Content.ReadAsStringAsync());
+                var match = result is null ? null : FindExactItem(item.Name, result.offers);
+
+                if (match is null)
+                {
+                    Log.Warning("[DMARKET] Item não encontrado: [{ItemId}] {Item}", item.ItemId, item.Name);
+                    continue;
+                }
+
+                var price = Math.Round(match.priceCents * exchangeRate / 100, 2);
+                captured.Add(new CollectData
+                {
+                    CaptureId = captureId,
+                    ItemId = item.ItemId,
+                    Price = price
+                });
+
                 Log.Information("[DMARKET] R$ {Price} | {Item}", price, item.Name);
             }
-            catch (Exception exception) { Log.Error(exception, "[DMARKET] Erro ao processar {Item}", item.Name); }
+            catch (Exception exception)
+            {
+                Log.Error(exception, "[DMARKET] Erro ao processar {Item}", item.Name);
+            }
         }
         repository.Save(ServiceType.DMARKET, captureId, exchangeRate, captured);
     }
@@ -79,22 +99,41 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
     private static readonly Regex PricePattern = new(@"R\$\s?([\d.,]+)", RegexOptions.Compiled);
     private static readonly IReadOnlyDictionary<ItemRarity, string> Rarities = new Dictionary<ItemRarity, string>
     {
-        [ItemRarity.Ancient] = "Rarity_Ancient", [ItemRarity.Arcana] = "Rarity_Arcana", [ItemRarity.Common] = "Rarity_Common",
-        [ItemRarity.Uncommon] = "Rarity_Uncommon", [ItemRarity.Immortal] = "Rarity_Immortal", [ItemRarity.Legendary] = "Rarity_Legendary",
-        [ItemRarity.Mythical] = "Rarity_Mythical", [ItemRarity.Rare] = "Rarity_Rare"
+        [ItemRarity.Ancient] = "Rarity_Ancient",
+        [ItemRarity.Arcana] = "Rarity_Arcana",
+        [ItemRarity.Common] = "Rarity_Common",
+        [ItemRarity.Uncommon] = "Rarity_Uncommon",
+        [ItemRarity.Immortal] = "Rarity_Immortal",
+        [ItemRarity.Legendary] = "Rarity_Legendary",
+        [ItemRarity.Mythical] = "Rarity_Mythical",
+        [ItemRarity.Rare] = "Rarity_Rare"
     };
     private static readonly IReadOnlyDictionary<Hero, string> HeroAliases = new Dictionary<Hero, string>
     {
-        [Hero.AntimagePersona1] = "antimage_persona1", [Hero.CrystalMaidenPersona1] = "crystal_maiden_persona1",
-        [Hero.PudgePersona1] = "pudge_persona1", [Hero.InvokerPersona1] = "invoker_persona1",
-        [Hero.CentaurWarrunner] = "centaur", [Hero.Doom] = "doom_bringer", [Hero.NaturesProphet] = "furion",
-        [Hero.KeeperOfTheLight] = "keeper_of_the_light", [Hero.Magnus] = "magnataur", [Hero.Necrophos] = "necrolyte",
-        [Hero.ShadowFiend] = "nevermore", [Hero.OutworldDestroyer] = "obsidian_destroyer", [Hero.Clockwerk] = "rattletrap",
-        [Hero.Timbersaw] = "shredder", [Hero.WraithKing] = "skeleton_king", [Hero.Underlord] = "abyssal_underlord",
-        [Hero.Vengefulspirit] = "vengefulspirit", [Hero.Windranger] = "windrunner", [Hero.Io] = "wisp", [Hero.Zeus] = "zuus"
+        [Hero.AntimagePersona1] = "antimage_persona1",
+        [Hero.CrystalMaidenPersona1] = "crystal_maiden_persona1",
+        [Hero.PudgePersona1] = "pudge_persona1",
+        [Hero.InvokerPersona1] = "invoker_persona1",
+        [Hero.CentaurWarrunner] = "centaur",
+        [Hero.Doom] = "doom_bringer",
+        [Hero.NaturesProphet] = "furion",
+        [Hero.KeeperOfTheLight] = "keeper_of_the_light",
+        [Hero.Magnus] = "magnataur",
+        [Hero.Necrophos] = "necrolyte",
+        [Hero.ShadowFiend] = "nevermore",
+        [Hero.OutworldDestroyer] = "obsidian_destroyer",
+        [Hero.Clockwerk] = "rattletrap",
+        [Hero.Timbersaw] = "shredder",
+        [Hero.WraithKing] = "skeleton_king",
+        [Hero.Underlord] = "abyssal_underlord",
+        [Hero.Vengefulspirit] = "vengefulspirit",
+        [Hero.Windranger] = "windrunner",
+        [Hero.Io] = "wisp",
+        [Hero.Zeus] = "zuus",
+        [Hero.TreantProtector] = "treant",
     };
 
-    public async Task<List<Item>> CollectAsync(IEnumerable<Item> items, decimal exchangeRate, int maxConcurrency = 5)
+    public async Task<List<Item>> CollectAsync(IEnumerable<Item> items, decimal exchangeRate, int maxConcurrency = 2)
     {
         var captureId = Guid.NewGuid();
         var captured = new ConcurrentBag<CollectData>();
@@ -104,7 +143,8 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
         await using var context = await browser.NewContextAsync(new()
         {
             StorageStatePath = File.Exists("steam-session.json") ? "steam-session.json" : null,
-            Locale = "pt-BR", TimezoneId = "America/Sao_Paulo",
+            Locale = "pt-BR",
+            TimezoneId = "America/Sao_Paulo",
             UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Safari/537.36"
         });
         using var semaphore = new SemaphoreSlim(maxConcurrency);
@@ -133,7 +173,7 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
                     var price = texts.Where(text => text.Contains(item.Name, StringComparison.OrdinalIgnoreCase)).Select(ParsePrice).Where(value => value > 0).DefaultIfEmpty().Min();
                     if (price <= 0) continue;
                     captured.Add(new CollectData { CaptureId = captureId, ItemId = item.ItemId, Price = price });
-                Log.Information("[STEAM] R$ {Price:F2} | {Item}", price, item.Name);
+                    Log.Information("[STEAM] R$ {Price:F2} | {Item}", price, item.Name);
                     return true;
                 }
                 catch (TimeoutException exception) when (attempt < MaxRetries)
