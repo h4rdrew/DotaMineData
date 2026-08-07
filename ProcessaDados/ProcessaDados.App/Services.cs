@@ -38,6 +38,7 @@ internal sealed class DmarketCollector(CaptureRepository repository) : IDisposab
 {
     private const string BaseUrl = "https://api.dmarket.com/exchange/v1/market/items/v2?orderBy=price&orderDir=asc&title=";
     private const string Query = "&priceFrom=0&priceTo=0&treeFilters=rarity%5B%5D=arcana,rarity%5B%5D=immortal&gameId=9a92&myFavorites=false&currency=USD&platform=browser&isLoggedIn=true&pageSize=100";
+    private static readonly TimeSpan RequestInterval = TimeSpan.FromMilliseconds(500);
     private static readonly string[] Qualities = ["Normal", "Genuine", "Elder", "Unusual", "Self-Made", "Inscribed", "Cursed", "Heroic", "Favored", "Ascendant", "Autographed", "Legacy", "Exalted", "Frozen", "Corrupted", "Auspicious", "Infused"];
     private readonly HttpClient _client = ExchangeRateService.CreateClient();
 
@@ -45,10 +46,14 @@ internal sealed class DmarketCollector(CaptureRepository repository) : IDisposab
     {
         var captureId = Guid.NewGuid();
         var captured = new List<CollectData>();
+        var isFirstRequest = true;
         foreach (var item in items)
         {
             try
             {
+                if (!isFirstRequest) await Task.Delay(RequestInterval);
+                isFirstRequest = false;
+
                 var requestUri = BaseUrl + Uri.EscapeDataString(item.Name.Trim()) + Query;
                 using var response = await _client.GetAsync(requestUri);
                 if (!response.IsSuccessStatusCode)
