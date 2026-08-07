@@ -53,7 +53,7 @@ internal sealed class DataProcessingApplication
             switch (Console.ReadLine()?.Trim().ToUpperInvariant())
             {
                 case "N": return;
-                case "Y": pending = await collector.CollectAsync(pending, exchangeRate, 1); break;
+                case "Y": pending = await collector.CollectAsync(pending, exchangeRate); break;
                 default: Console.WriteLine("Entrada inválida, tente novamente..."); break;
             }
         }

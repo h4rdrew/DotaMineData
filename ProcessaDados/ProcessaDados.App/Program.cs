@@ -1,5 +1,6 @@
 using ProcessaDados.App;
 using Serilog;
+using System.Diagnostics;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
@@ -8,7 +9,11 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
-    Log.Information("Aplicação iniciada: v{Version}", typeof(Program).Assembly.GetName().Version);
+    var version = FileVersionInfo
+        .GetVersionInfo(typeof(Program).Assembly.Location)
+        .FileVersion;
+
+    Log.Information("Aplicação iniciada: v{Version}", version);
     await new DataProcessingApplication().RunAsync();
 }
 catch (Exception exception)
