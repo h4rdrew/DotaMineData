@@ -14,7 +14,10 @@ try
         .FileVersion;
 
     Log.Information("Aplicação iniciada: v{Version}", version);
-    await new DataProcessingApplication().RunAsync();
+    if (args.Length > 0)
+        Environment.ExitCode = await IntegrationRunner.RunAsync(args);
+    else
+        await new DataProcessingApplication().RunAsync();
 }
 catch (Exception exception)
 {

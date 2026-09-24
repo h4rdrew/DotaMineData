@@ -16,14 +16,15 @@ internal sealed class ExchangeRateService : IDisposable
 {
     private readonly HttpClient _client = CreateClient();
 
-    public async Task<decimal> GetUsdToBrlAsync()
+    public async Task<decimal> GetUsdToBrlAsync(CancellationToken token = default)
     {
         try
         {
-            using var response = await _client.GetAsync("https://api.dmarket.com/currency-rate/v1/rates");
+            using var response = await _client.GetAsync("https://api.dmarket.com/currency-rate/v1/rates", token);
             if (!response.IsSuccessStatusCode) return 0;
-            return JsonConvert.DeserializeObject<DmarketExchangeRateResponse>(await response.Content.ReadAsStringAsync())?.Rates.BRL ?? 0;
+            return JsonConvert.DeserializeObject<DmarketExchangeRateResponse>(await response.Content.ReadAsStringAsync(token))?.Rates.BRL ?? 0;
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (Exception exception) { Log.Error(exception, "Erro ao consultar a cotação do dólar"); return 0; }
     }
 
@@ -43,16 +44,22 @@ internal sealed class DmarketCollector(CaptureRepository repository) : IDisposab
     private readonly HttpClient _client = ExchangeRateService.CreateClient();
     private readonly RequestPacer _requestPacer = new(TimeSpan.FromMilliseconds(1200), TimeSpan.FromMilliseconds(2400));
 
-    public async Task CollectAsync(IEnumerable<Item> items, decimal exchangeRate)
+    public async Task CollectAsync(IEnumerable<Item> items, decimal exchangeRate, Action<int, int, int, bool>? progress = null, CancellationToken token = default)
     {
+        var itemList = items.ToList();
+        var completed = 0;
         var captureId = Guid.NewGuid();
         var captured = new List<CollectData>();
-        foreach (var item in items)
+        try
         {
+        foreach (var item in itemList)
+        {
+            token.ThrowIfCancellationRequested();
+            var interrupted = false;
             try
             {
                 var requestUri = BaseUrl + Uri.EscapeDataString(item.Name.Trim()) + Query;
-                using var response = await GetWithRetryAsync(requestUri, item.Name);
+                using var response = await GetWithRetryAsync(requestUri, item.Name, token);
                 if (response is null) continue;
                 if (!response.IsSuccessStatusCode)
                 {
@@ -60,7 +67,7 @@ internal sealed class DmarketCollector(CaptureRepository repository) : IDisposab
                     continue;
                 }
 
-                var result = JsonConvert.DeserializeObject<DmarketResponseV2>(await response.Content.ReadAsStringAsync());
+                var result = JsonConvert.DeserializeObject<DmarketResponseV2>(await response.Content.ReadAsStringAsync(token));
                 var match = result is null ? null : FindExactItem(item.Name, result.offers);
 
                 if (match is null)
@@ -79,25 +86,43 @@ internal sealed class DmarketCollector(CaptureRepository repository) : IDisposab
 
                 Log.Information("[DMARKET] R$ {Price} | {Item}", price, item.Name);
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                interrupted = true;
+                throw;
+            }
             catch (Exception exception)
             {
                 Log.Error(exception, "[DMARKET] Erro ao processar {Item}", item.Name);
             }
+            finally
+            {
+                if (!interrupted)
+                {
+                    completed++;
+                    progress?.Invoke(completed, itemList.Count, completed - captured.Count, false);
+                }
+            }
         }
-        repository.Save(ServiceType.DMARKET, captureId, exchangeRate, captured);
+        }
+        finally
+        {
+            repository.Save(ServiceType.DMARKET, captureId, exchangeRate, captured);
+            progress?.Invoke(completed, itemList.Count, completed - captured.Count, true);
+        }
     }
 
-    private async Task<HttpResponseMessage?> GetWithRetryAsync(string requestUri, string itemName)
+    private async Task<HttpResponseMessage?> GetWithRetryAsync(string requestUri, string itemName, CancellationToken token)
     {
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            await _requestPacer.WaitAsync();
+            await _requestPacer.WaitAsync(token);
             HttpResponseMessage response;
             try
             {
-                response = await _client.GetAsync(requestUri);
+                response = await _client.GetAsync(requestUri, token);
             }
-            catch (Exception exception) when (attempt < MaxAttempts && exception is HttpRequestException or TaskCanceledException)
+            catch (Exception exception) when (!token.IsCancellationRequested && attempt < MaxAttempts && exception is HttpRequestException or TaskCanceledException)
             {
                 var networkDelay = TimeSpan.FromSeconds(Math.Pow(2, attempt + 1) + Random.Shared.NextDouble() * 3);
                 _requestPacer.Penalize(networkDelay);
@@ -150,7 +175,6 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
 {
     private const int MaxRetries = 3;
     private static readonly TimeSpan SteamThrottleCooldown = TimeSpan.FromSeconds(45);
-    private static readonly Regex PricePattern = new(@"R\$\s?([\d.,]+)", RegexOptions.Compiled);
     private static readonly IReadOnlyDictionary<ItemRarity, string> Rarities = new Dictionary<ItemRarity, string>
     {
         [ItemRarity.Ancient] = "Rarity_Ancient",
@@ -188,31 +212,53 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
     };
     private readonly RequestPacer _requestPacer = new(TimeSpan.FromMilliseconds(3000), TimeSpan.FromMilliseconds(6000));
 
-    public async Task<List<Item>> CollectAsync(IEnumerable<Item> items, decimal exchangeRate)
+    public async Task<List<Item>> CollectAsync(IEnumerable<Item> items, decimal exchangeRate, Action<int, int, int, bool>? progress = null, CancellationToken token = default)
     {
+        var itemList = items.ToList();
+        var completed = 0;
         var captureId = Guid.NewGuid();
         var captured = new ConcurrentBag<CollectData>();
         var pending = new ConcurrentBag<Item>();
+        token.ThrowIfCancellationRequested();
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        using var registration = token.Register(() => { _ = CloseCancelledBrowserAsync(browser); });
+        token.ThrowIfCancellationRequested();
         await using var context = await browser.NewContextAsync(new()
         {
             StorageStatePath = File.Exists("steam-session.json") ? "steam-session.json" : null,
             Locale = "pt-BR",
             TimezoneId = "America/Sao_Paulo"
         });
-        using var semaphore = new SemaphoreSlim(1);
-        await Task.WhenAll(items.Select(async item =>
+        try
         {
-            await semaphore.WaitAsync();
-            try { if (!await TryCollectItemAsync(context, item, captureId, captured)) pending.Add(item); }
-            finally { semaphore.Release(); }
-        }));
-        repository.Save(ServiceType.STEAM, captureId, exchangeRate, captured.ToList());
+            foreach (var item in itemList)
+            {
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    if (!await TryCollectItemAsync(context, item, captureId, captured, exchangeRate, token)) pending.Add(item);
+                }
+                catch (Exception) when (token.IsCancellationRequested) { throw new OperationCanceledException(token); }
+                catch (Exception exception)
+                {
+                    pending.Add(item);
+                    Log.Error(exception, "[STEAM] Erro ao processar {Item}", item.Name);
+                }
+                completed++;
+                progress?.Invoke(completed, itemList.Count, pending.Count, false);
+            }
+        }
+        finally
+        {
+            completed = captured.Count + pending.Count;
+            repository.Save(ServiceType.STEAM, captureId, exchangeRate, captured.ToList());
+            progress?.Invoke(completed, itemList.Count, pending.Count, true);
+        }
         return pending.ToList();
     }
 
-    private async Task<bool> TryCollectItemAsync(IBrowserContext context, Item item, Guid captureId, ConcurrentBag<CollectData> captured)
+    private async Task<bool> TryCollectItemAsync(IBrowserContext context, Item item, Guid captureId, ConcurrentBag<CollectData> captured, decimal exchangeRate, CancellationToken token)
     {
         var page = await context.NewPageAsync();
         try
@@ -221,7 +267,7 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
             {
                 try
                 {
-                    await _requestPacer.WaitAsync();
+                    await _requestPacer.WaitAsync(token);
                     var response = await page.GotoAsync(BuildUrl(item), new() { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 60000 });
                     if (response is not null && response.Status is 404 or 403 or 429)
                     {
@@ -234,8 +280,11 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
                         continue;
                     }
 
-                    var texts = await page.Locator("a[href*='/market/listings/570/']").AllInnerTextsAsync();
-                    var price = texts.Where(text => text.Contains(item.Name, StringComparison.OrdinalIgnoreCase)).Select(ParsePrice).Where(value => value > 0).DefaultIfEmpty().Min();
+                    var listings = page.Locator("a[href*='/market/listings/570/']");
+                    await listings.First.WaitForAsync(new() { State = WaitForSelectorState.Attached, Timeout = 15000 });
+                    var texts = await listings.AllInnerTextsAsync();
+                    var price = texts.Where(text => text.Contains(item.Name, StringComparison.OrdinalIgnoreCase))
+                        .Select(text => SteamPriceParser.ParseBrl(text, exchangeRate)).Where(value => value > 0).DefaultIfEmpty().Min();
                     if (price <= 0)
                     {
                         if (attempt < MaxRetries)
@@ -252,6 +301,7 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
                     Log.Information("[STEAM] R$ {Price:F2} | {Item}", price, item.Name);
                     return true;
                 }
+                catch (Exception) when (token.IsCancellationRequested) { throw new OperationCanceledException(token); }
                 catch (TimeoutException exception) when (attempt < MaxRetries)
                 {
                     var delay = GetSteamRetryDelay(attempt);
@@ -265,9 +315,14 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
                 }
             }
         }
-        finally { await page.CloseAsync(); }
+        finally { if (!page.IsClosed) await page.CloseAsync(); }
         Log.Warning("[STEAM] Não capturado: {Item}", item.Name);
         return false;
+    }
+
+    private static async Task CloseCancelledBrowserAsync(IBrowser browser)
+    {
+        try { await browser.CloseAsync(); } catch (PlaywrightException) { }
     }
 
     private static TimeSpan GetSteamRetryDelay(int attempt) =>
@@ -292,15 +347,6 @@ internal sealed class SteamMarketCollector(CaptureRepository repository)
         return $"https://steamcommunity.com/market/search?{hero}{rarity}&appid=570&q={Uri.EscapeDataString(item.Name.Trim())}&l=english";
     }
 
-    private static decimal ParsePrice(string text)
-    {
-        var match = PricePattern.Match(text);
-        if (!match.Success) return 0;
-        var value = match.Groups[1].Value;
-        if (value.Contains(',') && value.Contains('.')) value = value.LastIndexOf(',') > value.LastIndexOf('.') ? value.Replace(".", "").Replace(',', '.') : value.Replace(",", "");
-        else if (value.Contains(',')) value = value.Replace(',', '.');
-        return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var price) ? price : 0;
-    }
 }
 
 internal sealed class RequestPacer(TimeSpan minimumInterval, TimeSpan maximumInterval)
@@ -308,8 +354,9 @@ internal sealed class RequestPacer(TimeSpan minimumInterval, TimeSpan maximumInt
     private readonly object _sync = new();
     private DateTimeOffset _nextRequestAt = DateTimeOffset.MinValue;
 
-    public async Task WaitAsync()
+    public async Task WaitAsync(CancellationToken token = default)
     {
+        token.ThrowIfCancellationRequested();
         TimeSpan delay;
         lock (_sync)
         {
@@ -319,7 +366,7 @@ internal sealed class RequestPacer(TimeSpan minimumInterval, TimeSpan maximumInt
             _nextRequestAt = scheduledAt + RandomInterval();
         }
 
-        if (delay > TimeSpan.Zero) await Task.Delay(delay);
+        if (delay > TimeSpan.Zero) await Task.Delay(delay, token);
     }
 
     public void Penalize(TimeSpan delay)
