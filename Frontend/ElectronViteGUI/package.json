@@ -1,11 +1,15 @@
 {
   "name": "electronvitegui",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
   "scripts": {
+    "test:steam-price": "dotnet run --project tests/steam-price-parser/SteamPriceParser.Tests.csproj -c Release",
+    "test:collector": "node --test tests/collector.test.cjs",
+    "test:processor": "node --test tests/processor-smoke.cjs",
+    "test:collection-ui": "node tests/run-ui.cjs",
     "format": "prettier --write .",
     "lint": "eslint --cache .",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
@@ -16,7 +20,8 @@
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win",
+    "prepare:processor": "node scripts/prepare-processor.mjs",
+    "build:win": "npm run prepare:processor && npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux"
   },

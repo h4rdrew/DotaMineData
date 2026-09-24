@@ -1,3 +1,5 @@
+import type { CollectorState } from './collector'
+
 export interface Hero {
   Id: number
   HeroId: number
@@ -33,6 +35,10 @@ export interface MutationResult {
 }
 
 export interface DesktopApi {
+  startCollection(itemId?: number): Promise<CollectorState>
+  cancelCollection(): Promise<CollectorState>
+  getCollectionState(): Promise<CollectorState>
+  onCollectionState(listener: (state: CollectorState) => void): () => void
   getHeroes(): Promise<Hero[]>
   getItems(): Promise<Item[]>
   getItemData(itemId: number): Promise<ItemHistory[]>

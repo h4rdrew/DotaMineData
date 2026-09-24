@@ -3,6 +3,10 @@ productName: electronvitegui
 directories:
   buildResources: build
 files:
+  - '!processor/**'
+  - '!.integration-staging/**'
+  - '!scripts/**'
+  - '!tests/**'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -13,6 +17,14 @@ asarUnpack:
   - resources/**
 win:
   executableName: electronvitegui
+  extraResources:
+    - from: processor
+      to: processor
+      filter:
+        - '**/*'
+        - '!config.json'
+        - '!steam-session.json'
+        - '!**/*.pdb'
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

@@ -8,6 +8,7 @@ function openDatabase(mode: number): Promise<sqlite3.Database> {
     const database = new sqlite3.Database(appPaths.database, mode, (error) =>
       error ? reject(error) : resolve(database)
     )
+    database.configure('busyTimeout', 10000)
   })
 }
 

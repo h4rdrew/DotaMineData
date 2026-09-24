@@ -10,11 +10,19 @@ import ExternalLink from './components/ExternalLink'
 import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
 import DialogRegisterItem from './components/dialogRegisterItem.component'
+import { CollectionProgress } from './components/CollectionProgress'
+import { useCollection } from './hooks/useCollection'
 import {
+  Alert,
+  Button,
   Box,
   createTheme,
   CssBaseline,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Drawer,
   FormControl,
   IconButton,
@@ -35,6 +43,7 @@ import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import SettingsIcon from '@mui/icons-material/Settings'
+import SyncIcon from '@mui/icons-material/Sync'
 import { pegaHeroName } from './utils/heroi'
 
 const darkTheme = createTheme({
@@ -52,6 +61,10 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   open?: boolean
 }>(({ theme }) => ({
   flexGrow: 1,
+  minWidth: 0,
+  height: '100dvh',
+  overflowY: 'auto',
+  overflowX: 'hidden',
   padding: theme.spacing(3),
   transition: theme.transitions.create('margin', {
     easing: theme.transitions.easing.sharp,
@@ -132,6 +145,66 @@ function App(): JSX.Element {
   const [heroes, setHeroes] = useState<Heroes[]>([])
 
   const [openDialog, setOpenDialog] = useState(false)
+  const {
+    collection,
+    starting,
+    error: collectionError,
+    startCollection,
+    cancelCollection
+  } = useCollection()
+  const collecting =
+    starting || collection.status === 'running' || collection.status === 'cancelling'
+  const [collectionDialogOpen, setCollectionDialogOpen] = useState(false)
+  const beginCollection = (itemId?: number): void => {
+    setCollectionDialogOpen(true)
+    void startCollection(itemId)
+  }
+  const collectionLabel = collectionError
+    ? 'Erro na atualização'
+    : collecting
+      ? collection.status === 'cancelling'
+        ? 'Cancelando dados…'
+        : 'Atualizando dados…'
+      : collection.status === 'completed'
+        ? 'Dados atualizados'
+        : collection.status === 'cancelled'
+          ? 'Atualização cancelada'
+          : collection.status === 'partial'
+            ? 'Atualização parcial'
+            : 'Erro na atualização'
+  const displayedDate = useRef<string | null>(null)
+  const refreshedRun = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (
+      !collection.runId ||
+      collection.status === 'running' ||
+      collection.status === 'cancelling' ||
+      collection.status === 'idle' ||
+      refreshedRun.current === collection.runId
+    )
+      return
+    refreshedRun.current = collection.runId
+    const refresh = async (): Promise<void> => {
+      const date = displayedDate.current ?? dayjs().format('YYYY-MM-DD')
+      const prices = await window.api.getItemDataByDate(date)
+      if (date === (displayedDate.current ?? dayjs().format('YYYY-MM-DD'))) {
+        setItemMenu((items) =>
+          items.map((item) => ({
+            ...item,
+            Data: prices.filter((price) => price.ItemId === item.ItemId)
+          }))
+        )
+      }
+      const selectedId = itemSelectedId.current
+      if (selectedId) {
+        const history = await window.api.getItemData(selectedId)
+        if (selectedId === itemSelectedId.current)
+          setSelectedItemData(history as unknown as ItemHistoric[])
+      }
+    }
+    void refresh().catch((error) => console.error('Erro ao recarregar preços:', error))
+  }, [collection.runId, collection.status])
 
   useEffect(() => {
     const fetchItems = async (): Promise<void> => {
@@ -306,6 +379,7 @@ function App(): JSX.Element {
   // 1 = só os itens não comprados
   // 2 = todos os itens
   function alteraExibicaoItemOwned(): void {
+    displayedDate.current = null
     const novoEstado = (estadoExibicaoItensComprados + 1) % 3 // Cicla entre 0, 1 e 2
     setEstadoExibicaoItensComprados(novoEstado)
 
@@ -501,6 +575,7 @@ function App(): JSX.Element {
     }
 
     const dataSelecionada = newValue.format('YYYY-MM-DD')
+    displayedDate.current = dataSelecionada
 
     const fetchItemsByDate = async (): Promise<void> => {
       try {
@@ -523,6 +598,7 @@ function App(): JSX.Element {
   }
 
   function buscaDadosAtualizados(): void {
+    displayedDate.current = null
     const fetchItems = async (): Promise<void> => {
       try {
         const items = await window.api.getItems()
@@ -546,6 +622,7 @@ function App(): JSX.Element {
   const [hero, setHero] = React.useState('')
 
   const handleChange = (event: SelectChangeEvent): void => {
+    displayedDate.current = null
     setHero(event.target.value)
 
     if (event.target.value === '') {
@@ -624,6 +701,42 @@ function App(): JSX.Element {
               <Box sx={{ flexGrow: 1 }}></Box>
 
               {/* DATE PICKER */}
+              {(collection.runId || starting || collectionError) && (
+                <Button
+                  color="inherit"
+                  onClick={() => setCollectionDialogOpen(true)}
+                  aria-label="Ver progresso da atualização"
+                  startIcon={
+                    <SyncIcon
+                      sx={
+                        collecting
+                          ? {
+                              animation: 'collection-spin 1.5s linear infinite',
+                              '@keyframes collection-spin': { to: { transform: 'rotate(360deg)' } }
+                            }
+                          : undefined
+                      }
+                    />
+                  }
+                  sx={{
+                    position: 'fixed',
+                    bottom: 16,
+                    right: 24,
+                    zIndex: 1201,
+                    px: 2,
+                    py: 1,
+                    textTransform: 'none',
+                    bgcolor: 'background.paper',
+                    color: 'text.primary',
+                    boxShadow: 4,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    '&:hover': { bgcolor: 'action.selected' }
+                  }}
+                >
+                  {collectionLabel}
+                </Button>
+              )}
               <BasicDatePicker
                 onChange={(newValue) => buscaDadosPorData(newValue)}
               ></BasicDatePicker>
@@ -669,6 +782,25 @@ function App(): JSX.Element {
                   }
                 }}
               >
+                <MenuItem
+                  disabled={collecting}
+                  onClick={() => {
+                    handleClose()
+                    beginCollection()
+                  }}
+                >
+                  Atualizar todos os itens
+                </MenuItem>
+                {collection.runId && (
+                  <MenuItem
+                    onClick={() => {
+                      handleClose()
+                      setCollectionDialogOpen(true)
+                    }}
+                  >
+                    Ver progresso da atualização
+                  </MenuItem>
+                )}
                 <MenuItem
                   onClick={() => {
                     setOpenDialog(true)
@@ -841,6 +973,15 @@ function App(): JSX.Element {
           </Drawer>
           <Main open={open}>
             <DrawerHeader />
+            <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Button
+                variant="outlined"
+                disabled={collecting || !itemSelectedId.current}
+                onClick={() => beginCollection(itemSelectedId.current)}
+              >
+                Atualizar este item
+              </Button>
+            </Box>
             <div className="info-item-container">
               <div className="item-selected">
                 <ExternalLink href={createSteamHref(itemSelected.current)} className="market-link">
@@ -918,6 +1059,38 @@ function App(): JSX.Element {
             </Box>
           </Main>
         </Box>
+        <Dialog
+          open={collectionDialogOpen}
+          onClose={() => setCollectionDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+          aria-labelledby="collection-dialog-title"
+        >
+          <DialogTitle id="collection-dialog-title">Atualização de dados</DialogTitle>
+          <DialogContent>
+            {collectionError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {collectionError}
+              </Alert>
+            )}
+            {starting && collection.status === 'idle' && (
+              <Box sx={{ py: 2 }}>Preparando atualização…</Box>
+            )}
+            <CollectionProgress
+              key={collection.runId}
+              state={collection}
+              onCancel={() => void cancelCollection()}
+            />
+            {collecting && (
+              <Box sx={{ color: 'text.secondary', fontSize: 14 }}>
+                Você pode fechar esta janela. A atualização continuará em segundo plano.
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCollectionDialogOpen(false)}>Fechar</Button>
+          </DialogActions>
+        </Dialog>
         <DialogRegisterItem open={openDialog} onClose={() => setOpenDialog(false)} />
       </ThemeProvider>
     </>

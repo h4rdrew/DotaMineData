@@ -1,9 +1,19 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { DesktopApi } from '../shared/contracts'
+import type { CollectorState } from '../shared/collector'
 
 // Custom APIs for renderer
 const api: DesktopApi = {
+  startCollection: (itemId) => ipcRenderer.invoke('collector:start', itemId),
+  cancelCollection: () => ipcRenderer.invoke('collector:cancel'),
+  getCollectionState: () => ipcRenderer.invoke('collector:state'),
+  onCollectionState: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: CollectorState): void =>
+      listener(state)
+    ipcRenderer.on('collector:state', handler)
+    return () => ipcRenderer.removeListener('collector:state', handler)
+  },
   getHeroes: () => ipcRenderer.invoke('getHeroes'),
   getItems: () => ipcRenderer.invoke('getitems'),
   getItemData: (itemId) => ipcRenderer.invoke('getItemData', itemId),

@@ -1,4 +1,8 @@
 # Logs
+.integration-staging/
+processor/
+tests/steam-price-parser/bin/
+tests/steam-price-parser/obj/
 logs
 *.log
 npm-debug.log*

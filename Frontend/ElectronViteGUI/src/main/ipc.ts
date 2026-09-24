@@ -5,6 +5,7 @@ import type { Hero, Item, ItemHistory, ItemPrice } from '../shared/contracts'
 import { appPaths } from './config'
 import { execute, queryAll } from './database'
 import { fetchItemData } from './item-scraper'
+import { registerCollector } from './collector'
 
 const latestPricesQuery = `WITH LatestCapture AS (
  SELECT cd.ItemId, cd.Price, ic.ServiceType,
@@ -15,6 +16,7 @@ const latestPricesQuery = `WITH LatestCapture AS (
 WHERE rowNumber = 1 ORDER BY ItemId, ServiceType`
 
 export function registerIpcHandlers(): void {
+  registerCollector()
   ipcMain.handle('saveBase64Image', async (_event, base64: string, fileName: string) => {
     const match = /^data:image\/(?:png|jpeg|webp);base64,([a-zA-Z0-9+/=]+)$/.exec(base64)
     if (!match || !/^\d+\.png$/.test(path.basename(fileName))) throw new Error('Imagem inválida.')
@@ -53,7 +55,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('getItemDataByDate', (_event, date: string) =>
     queryAll<ItemPrice>(latestPricesQuery, [date])
   )
-  ipcMain.handle('getItemDataDateNow', () =>
-    queryAll<ItemPrice>(latestPricesQuery, [new Date().toISOString().slice(0, 10)])
-  )
+  ipcMain.handle('getItemDataDateNow', () => {
+    const now = new Date()
+    const localDate = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0')
+    ].join('-')
+    return queryAll<ItemPrice>(latestPricesQuery, [localDate])
+  })
 }
