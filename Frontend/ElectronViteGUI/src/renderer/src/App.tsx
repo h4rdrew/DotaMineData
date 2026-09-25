@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
 import { Heroes, ItemDataDateNow, ItemDB, ItemHistoric, ItemMenu } from './interfaces'
-import { ChartLine } from './components/chartLine.component'
+import { ItemStatistics } from './components/ItemStatistics'
 import steamLogo from './assets/steam_logo.png'
 import dmarketLogo from './assets/dmarket_logo.png'
 import liquipediaLogo from './assets/liquipedia_logo.png'
@@ -11,6 +11,9 @@ import svgStar from './assets/star.svg'
 import svgVoidStar from './assets/star-void.svg'
 import DialogRegisterItem from './components/dialogRegisterItem.component'
 import { CollectionProgress } from './components/CollectionProgress'
+import { DmarketPriceChange } from './components/DmarketPriceChange'
+import { dmarketPriceChange } from './utils/dmarket'
+import { priceSummary } from './utils/priceStatistics'
 import { useCollection } from './hooks/useCollection'
 import {
   Alert,
@@ -55,7 +58,7 @@ const darkTheme = createTheme({
   }
 })
 
-const drawerWidth = 640
+const drawerWidth = 740
 
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   open?: boolean
@@ -309,6 +312,16 @@ function App(): JSX.Element {
           return precoB - precoA
         })
         break
+      case 'dmarket_change_desc':
+      case 'dmarket_change_asc':
+        itensOrdenados.sort((a, b) => {
+          const changeA = dmarketPriceChange(a.Data)
+          const changeB = dmarketPriceChange(b.Data)
+          if (changeA === null) return changeB === null ? 0 : 1
+          if (changeB === null) return -1
+          return filtro === 'dmarket_change_desc' ? changeB - changeA : changeA - changeB
+        })
+        break
       default:
         break
     }
@@ -497,7 +510,7 @@ function App(): JSX.Element {
     )
   }
 
-  function pegaPorcentualDMarket(item: ItemMenu): string {
+  function pegaPorcentualDMarket(item: ItemMenu): JSX.Element {
     const dmarketPrice = item.Data.filter((item) => item.ServiceType === 2).reduce(
       (acc, item) => acc + item.Price,
       0
@@ -509,7 +522,22 @@ function App(): JSX.Element {
 
     const dmarketData = Math.round(((dmarketPrice - steamPrice) / steamPrice) * 100)
 
-    return dmarketData === Infinity ? '-' : `${dmarketData}%`
+    const valid = Number.isFinite(dmarketData)
+    return (
+      <Box
+        component="span"
+        sx={{
+          color:
+            !valid || dmarketData === 0
+              ? 'text.secondary'
+              : dmarketData > 0
+                ? 'success.light'
+                : 'error.light'
+        }}
+      >
+        {valid ? `${dmarketData > 0 ? '+' : ''}${dmarketData}%` : '-'}
+      </Box>
+    )
   }
 
   const porcentMenor = useRef<boolean>(false)
@@ -540,25 +568,7 @@ function App(): JSX.Element {
     return (steam - dmarket) / steam
   }
 
-  function openTab(e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, tabNumber: number): void {
-    const tabcontent = document.getElementsByClassName('tabcontent')
-
-    for (let i = 0; i < tabcontent.length; i++) {
-      tabcontent[i].setAttribute('style', 'display: none')
-    }
-
-    const tablinks = document.getElementsByClassName('tablinks')
-
-    for (let i = 0; i < tablinks.length; i++) {
-      tablinks[i].className = tablinks[i].className.replace(' active', '')
-    }
-
-    const tabId = `tab-${tabNumber}`
-
-    document.getElementById(tabId)?.setAttribute('style', 'display: flex')
-
-    e.currentTarget.className += ' active'
-  }
+  const [activeTab, setActiveTab] = useState(0)
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
   const openMenu = Boolean(anchorEl)
@@ -829,11 +839,33 @@ function App(): JSX.Element {
                 <div id="searchResultsRows">
                   <div className="market_listing_table_header">
                     <div
+                      className="market_listing_right_cell market_sortable_column"
+                      style={{ width: '100px' }}
+                      title="Variação do preço DMarket em relação à captura anterior do mesmo item"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() =>
+                        filtraDadosItens(
+                          filtroSelecionado.startsWith('dmarket_change_')
+                            ? filtroSelecionado
+                            : 'dmarket_change_desc'
+                        )
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          event.currentTarget.click()
+                        }
+                      }}
+                    >
+                      DxD
+                    </div>
+                    <div
                       className="market_listing_right_cell pointer"
                       style={{ width: '70px' }}
                       onClick={() => alteraExibicaoItemPorcent()}
                     >
-                      %
+                      SxD
                     </div>
 
                     <div
@@ -900,6 +932,11 @@ function App(): JSX.Element {
                             alt=""
                           ></img>
                           <div className="market_listing_price_listings_block">
+                            <div className="market_listing_right_cell" style={{ width: '100px' }}>
+                              <span className="market_table_value">
+                                <DmarketPriceChange data={item.Data} />
+                              </span>
+                            </div>
                             <div className="market_listing_right_cell" style={{ width: '60px' }}>
                               <span className="market_table_value">
                                 {pegaPorcentualDMarket(item)}
@@ -1013,15 +1050,25 @@ function App(): JSX.Element {
               </div>
 
               <div className="tab">
-                <a className="tablinks" onClick={(e) => openTab(e, 0)}>
+                <a
+                  className={`tablinks${activeTab === 0 ? ' active' : ''}`}
+                  onClick={() => setActiveTab(0)}
+                >
                   Current Prices
                 </a>
-                <a className="tablinks" onClick={(e) => openTab(e, 1)}>
+                <a
+                  className={`tablinks${activeTab === 1 ? ' active' : ''}`}
+                  onClick={() => setActiveTab(1)}
+                >
                   Historical Low
                 </a>
               </div>
 
-              <div id="tab-0" className="tabcontent">
+              <div
+                id="tab-0"
+                className="tabcontent"
+                style={{ display: activeTab === 0 ? 'flex' : 'none' }}
+              >
                 <div className="tab-content-cotainer">
                   <span className="info-price-label">Steam:</span>
                   <span className="price-tab">
@@ -1047,16 +1094,37 @@ function App(): JSX.Element {
                 </div>
               </div>
 
-              <div id="tab-1" className="tabcontent">
-                Historical Low Content
+              <div
+                id="tab-1"
+                className="tabcontent"
+                style={{ display: activeTab === 1 ? 'flex' : 'none' }}
+              >
+                {[1, 2].map((service) => {
+                  const stats = priceSummary(
+                    (selectedItemData ?? [])
+                      .filter((row) => row.ServiceType === service)
+                      .map((row) => row.Price)
+                  )
+                  return (
+                    <div key={service}>
+                      <span className="info-price-label">
+                        {service === 1 ? 'Steam' : 'DMarket'}:
+                      </span>
+                      <span className="price-tab">
+                        {stats
+                          ? stats.min.toLocaleString('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL'
+                            })
+                          : '—'}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
-            {/* GRÁFICO */}
-            {/* quando o menu esta colapsado, faz width = calc(100% - drawerWidth) */}
-            <Box sx={{ p: 1 }}>
-              <ChartLine data={selectedItemData} labels={[]} />
-            </Box>
+            <ItemStatistics key={itemSelectedId.current} history={selectedItemData} />
           </Main>
         </Box>
         <Dialog

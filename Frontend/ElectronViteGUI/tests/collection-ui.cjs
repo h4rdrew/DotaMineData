@@ -41,15 +41,27 @@ app
       callback({ cancel: /^https?:/.test(details.url) })
     })
     ipcMain.handle('getHeroes', () => [])
-    ipcMain.handle('getitems', () => [item])
-    ipcMain.handle('getItemDataDateNow', () => [])
+    ipcMain.handle('getitems', () => [
+      item,
+      { ...item, ItemId: 124, Name: 'Z Alta' },
+      { ...item, ItemId: 125, Name: 'Z Queda' },
+      { ...item, ItemId: 126, Name: 'Z Sem histórico' }
+    ])
+    ipcMain.handle('getItemDataDateNow', () => [
+      { ItemId: 123, ServiceType: 2, Price: 100, PreviousPrice: 100 },
+      { ItemId: 124, ServiceType: 2, Price: 120, PreviousPrice: 100 },
+      { ItemId: 125, ServiceType: 2, Price: 90, PreviousPrice: 100 }
+    ])
     ipcMain.handle('getItemDataByDate', () => {
       priceReads++
       return []
     })
     ipcMain.handle('getItemData', () => {
       historyReads++
-      return []
+      return ['2026-01-01', '2026-09-24', '2026-09-25'].flatMap((date, index) => [
+        { ItemId: 123, ServiceType: 1, Price: 150 + index * 10, DateTime: date, ExchangeRate: 1 },
+        { ItemId: 123, ServiceType: 2, Price: 100 + index * 10, DateTime: date, ExchangeRate: 1 }
+      ])
     })
     ipcMain.handle('collector:state', () => state)
     ipcMain.handle('collector:cancel', () => {
@@ -98,7 +110,52 @@ app
     )
     await evaluate('document.querySelector(\'[aria-label="open drawer"]\').click()')
     await waitFor("document.querySelector('.market_listing_row_link') !== null")
+    const sortChange = `document.querySelector('.market_listing_table_header [role="button"]').click()`
+    const rowNames = `[...document.querySelectorAll('.market_listing_item_name')].map(el => el.textContent)`
+    await evaluate(sortChange)
+    assert.deepEqual(await evaluate(rowNames), ['Z Alta', item.Name, 'Z Queda', 'Z Sem histórico'])
+    await evaluate(sortChange)
+    assert.deepEqual(await evaluate(rowNames), ['Z Queda', item.Name, 'Z Alta', 'Z Sem histórico'])
+    await evaluate(sortChange)
+    assert.deepEqual(await evaluate(rowNames), ['Z Alta', item.Name, 'Z Queda', 'Z Sem histórico'])
+    assert.equal(
+      await evaluate("getComputedStyle(document.querySelector('#tab-1')).display"),
+      'none'
+    )
+    await evaluate("document.querySelectorAll('.tablinks')[1].click()")
+    assert.equal(
+      await evaluate("getComputedStyle(document.querySelector('#tab-0')).display"),
+      'none'
+    )
+    await evaluate("document.querySelectorAll('.tablinks')[0].click()")
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    assert.equal(
+      await evaluate(`(() => {
+        const table = document.querySelector('#searchResults').getBoundingClientRect()
+        const drawer = document.querySelector('.MuiDrawer-paper').getBoundingClientRect()
+        const main = document.querySelector('main').getBoundingClientRect()
+        return Math.abs(table.width - drawer.width) < 2 && main.left >= drawer.right - 1
+      })()`),
+      true
+    )
+    await evaluate("document.querySelector('[data-sorttype=name]').click()")
     await evaluate("document.querySelector('.market_listing_row_link').click()")
+    await waitFor("document.querySelectorAll('main canvas').length === 3")
+    assert.equal(await evaluate("document.body.textContent.includes('3 dias com preço')"), true)
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent === '30 dias').click()"
+    )
+    await waitFor("document.body.textContent.includes('2 dias com preço')")
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent === 'Tudo').click()"
+    )
+    await waitFor("document.body.textContent.includes('3 dias com preço')")
+    assert.equal(
+      await evaluate(
+        'document.querySelector("main").scrollWidth <= document.querySelector("main").clientWidth'
+      ),
+      true
+    )
     await waitFor(
       "[...document.querySelectorAll('button')].some(b => b.textContent === 'Atualizar este item' && !b.disabled)"
     )

@@ -58,7 +58,8 @@ html {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -1041,7 +1042,8 @@ a.item_market_action_button_disabled {
 
 .market_page_left {
   /* padding-top: 2em; */
-  max-width: 639px;
+  width: 100%;
+  min-width: 0;
 }
 
 .market_page_fullwidth {
@@ -3166,6 +3168,19 @@ html.responsive.touch .market_listing_row:hover .market_actionmenu_button {
   gap: 70px;
   padding: 6px 15px;
   border-top: none;
+}
+
+.info-item-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.tabcontent {
+  flex-wrap: wrap;
+  column-gap: 40px;
+  row-gap: 12px;
 }
 
 .info-price-label {

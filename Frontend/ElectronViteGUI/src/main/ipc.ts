@@ -7,13 +7,18 @@ import { execute, queryAll } from './database'
 import { fetchItemData } from './item-scraper'
 import { registerCollector } from './collector'
 
-const latestPricesQuery = `WITH LatestCapture AS (
- SELECT cd.ItemId, cd.Price, ic.ServiceType,
- ROW_NUMBER() OVER (PARTITION BY cd.ItemId, ic.ServiceType ORDER BY ic.DateTime DESC) AS rowNumber
+const latestPricesQuery = `WITH CaptureHistory AS (
+ SELECT cd.ItemId, cd.Price, ic.ServiceType, ic.DateTime,
+ LAG(cd.Price) OVER (
+   PARTITION BY cd.ItemId, ic.ServiceType ORDER BY ic.DateTime, cd.Id
+ ) AS PreviousPrice,
+ ROW_NUMBER() OVER (
+   PARTITION BY cd.ItemId, ic.ServiceType ORDER BY ic.DateTime DESC, cd.Id DESC
+ ) AS rowNumber
  FROM CollectData cd JOIN ItemCaptured ic ON cd.CaptureId = ic.CaptureId
- WHERE ic.ServiceType IN (1, 2) AND DATE(ic.DateTime) = DATE(?)
-) SELECT ServiceType, Price, ItemId FROM LatestCapture
-WHERE rowNumber = 1 ORDER BY ItemId, ServiceType`
+ WHERE ic.ServiceType IN (1, 2) AND DATE(ic.DateTime) <= DATE(?)
+) SELECT ServiceType, Price, ItemId, PreviousPrice FROM CaptureHistory
+WHERE rowNumber = 1 AND DATE(DateTime) = DATE(?) ORDER BY ItemId, ServiceType`
 
 export function registerIpcHandlers(): void {
   registerCollector()
@@ -53,7 +58,7 @@ export function registerIpcHandlers(): void {
     )
   )
   ipcMain.handle('getItemDataByDate', (_event, date: string) =>
-    queryAll<ItemPrice>(latestPricesQuery, [date])
+    queryAll<ItemPrice>(latestPricesQuery, [date, date])
   )
   ipcMain.handle('getItemDataDateNow', () => {
     const now = new Date()
@@ -62,6 +67,6 @@ export function registerIpcHandlers(): void {
       String(now.getMonth() + 1).padStart(2, '0'),
       String(now.getDate()).padStart(2, '0')
     ].join('-')
-    return queryAll<ItemPrice>(latestPricesQuery, [localDate])
+    return queryAll<ItemPrice>(latestPricesQuery, [localDate, localDate])
   })
 }

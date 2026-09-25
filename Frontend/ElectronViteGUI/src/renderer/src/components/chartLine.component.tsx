@@ -40,7 +40,7 @@ function preprocessData(data: ItemHistoric[]): {
       {
         label: 'Steam',
         data: steamPrices,
-        borderColor: 'blue',
+        borderColor: '#64b5f6',
         backgroundColor: 'rgba(0, 0, 255, 0.5)',
         tension: 0.1,
         segment: {
@@ -52,7 +52,7 @@ function preprocessData(data: ItemHistoric[]): {
       {
         label: 'DMarket',
         data: dmarketPrices,
-        borderColor: 'green',
+        borderColor: '#81c784',
         backgroundColor: 'rgba(0, 255, 0, 0.5)',
         tension: 0.1,
         segment: {
@@ -87,6 +87,7 @@ export function ChartLine({ data }: ChartsLineProps): JSX.Element {
 
     const options: ChartOptions<'line'> = {
       responsive: true,
+      maintainAspectRatio: false,
       interaction: {
         mode: 'index',
         intersect: false
@@ -106,6 +107,10 @@ export function ChartLine({ data }: ChartsLineProps): JSX.Element {
       data: chartData,
       options
     })
+    return (): void => {
+      chartInstanceRef.current?.destroy()
+      chartInstanceRef.current = null
+    }
   }, [data])
 
   return <canvas ref={chartRef} />

@@ -17,6 +17,7 @@ export interface ItemPrice {
   ItemId: number
   Price: number
   ServiceType: number
+  PreviousPrice?: number | null
 }
 export interface ItemHistory extends ItemPrice {
   ExchangeRate: number
