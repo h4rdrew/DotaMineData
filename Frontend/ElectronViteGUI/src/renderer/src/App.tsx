@@ -3,8 +3,6 @@ import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
 import { Heroes, ItemDataDateNow, ItemDB, ItemHistoric, ItemMenu } from './interfaces'
 import { ItemStatistics } from './components/ItemStatistics'
-import steamLogo from './assets/steam_logo.png'
-import dmarketLogo from './assets/dmarket_logo.png'
 import liquipediaLogo from './assets/liquipedia_logo.png'
 import ExternalLink from './components/ExternalLink'
 import svgStar from './assets/star.svg'
@@ -13,7 +11,7 @@ import DialogRegisterItem from './components/dialogRegisterItem.component'
 import { CollectionProgress } from './components/CollectionProgress'
 import { DmarketPriceChange } from './components/DmarketPriceChange'
 import { dmarketPriceChange } from './utils/dmarket'
-import { priceSummary } from './utils/priceStatistics'
+import { PriceOverview } from './components/PriceOverview'
 import { useCollection } from './hooks/useCollection'
 import {
   Alert,
@@ -568,8 +566,6 @@ function App(): JSX.Element {
     return (steam - dmarket) / steam
   }
 
-  const [activeTab, setActiveTab] = useState(0)
-
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
   const openMenu = Boolean(anchorEl)
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
@@ -1010,28 +1006,18 @@ function App(): JSX.Element {
           </Drawer>
           <Main open={open}>
             <DrawerHeader />
-            <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              <Button
-                variant="outlined"
-                disabled={collecting || !itemSelectedId.current}
-                onClick={() => beginCollection(itemSelectedId.current)}
-              >
-                Atualizar este item
-              </Button>
-            </Box>
             <div className="info-item-container">
               <div className="item-selected">
-                <ExternalLink href={createSteamHref(itemSelected.current)} className="market-link">
-                  <img src={steamLogo} alt="Steam" height="20px" />
-                </ExternalLink>
-
-                <ExternalLink
-                  href={createDmarketHref(itemSelected.current)}
-                  className="market-link"
+                <IconButton
+                  size="small"
+                  color="primary"
+                  aria-label="Atualizar este item"
+                  title="Atualizar este item"
+                  disabled={collecting || !itemSelectedId.current}
+                  onClick={() => beginCollection(itemSelectedId.current)}
                 >
-                  <img src={dmarketLogo} alt="Dmarket" height="20px" />
-                </ExternalLink>
-
+                  <SyncIcon fontSize="small" />
+                </IconButton>
                 <ExternalLink
                   href={`https://liquipedia.net/dota2/${itemSelected.current.replace(/ /g, '_')}`}
                   className="market-link"
@@ -1049,79 +1035,13 @@ function App(): JSX.Element {
                 <small>({itemSelectedId.current})</small>
               </div>
 
-              <div className="tab">
-                <a
-                  className={`tablinks${activeTab === 0 ? ' active' : ''}`}
-                  onClick={() => setActiveTab(0)}
-                >
-                  Current Prices
-                </a>
-                <a
-                  className={`tablinks${activeTab === 1 ? ' active' : ''}`}
-                  onClick={() => setActiveTab(1)}
-                >
-                  Historical Low
-                </a>
-              </div>
-
-              <div
-                id="tab-0"
-                className="tabcontent"
-                style={{ display: activeTab === 0 ? 'flex' : 'none' }}
-              >
-                <div className="tab-content-cotainer">
-                  <span className="info-price-label">Steam:</span>
-                  <span className="price-tab">
-                    {selectedItemData
-                      ? pegaPreco(
-                          itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
-                          'steam'
-                        )
-                      : 'R$ 0,00'}
-                  </span>
-                </div>
-
-                <div className="tab-content-cotainer">
-                  <span className="info-price-label">DMarket:</span>
-                  <span className="price-tab">
-                    {selectedItemData
-                      ? pegaPreco(
-                          itemMenu.find((item) => item.Name === itemSelected.current)?.Data || [],
-                          'dmarket'
-                        )
-                      : 'R$ 0,00'}
-                  </span>
-                </div>
-              </div>
-
-              <div
-                id="tab-1"
-                className="tabcontent"
-                style={{ display: activeTab === 1 ? 'flex' : 'none' }}
-              >
-                {[1, 2].map((service) => {
-                  const stats = priceSummary(
-                    (selectedItemData ?? [])
-                      .filter((row) => row.ServiceType === service)
-                      .map((row) => row.Price)
-                  )
-                  return (
-                    <div key={service}>
-                      <span className="info-price-label">
-                        {service === 1 ? 'Steam' : 'DMarket'}:
-                      </span>
-                      <span className="price-tab">
-                        {stats
-                          ? stats.min.toLocaleString('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            })
-                          : '—'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+              <PriceOverview
+                key={itemSelectedId.current}
+                history={selectedItemData}
+                prices={itemMenu.find((item) => item.ItemId === itemSelectedId.current)?.Data ?? []}
+                steamHref={createSteamHref(itemSelected.current)}
+                dmarketHref={createDmarketHref(itemSelected.current)}
+              />
             </div>
 
             <ItemStatistics key={itemSelectedId.current} history={selectedItemData} />

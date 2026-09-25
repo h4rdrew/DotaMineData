@@ -48,6 +48,7 @@ app
       { ...item, ItemId: 126, Name: 'Z Sem histórico' }
     ])
     ipcMain.handle('getItemDataDateNow', () => [
+      { ItemId: 123, ServiceType: 1, Price: 170, PreviousPrice: 160 },
       { ItemId: 123, ServiceType: 2, Price: 100, PreviousPrice: 100 },
       { ItemId: 124, ServiceType: 2, Price: 120, PreviousPrice: 100 },
       { ItemId: 125, ServiceType: 2, Price: 90, PreviousPrice: 100 }
@@ -59,7 +60,14 @@ app
     ipcMain.handle('getItemData', () => {
       historyReads++
       return ['2026-01-01', '2026-09-24', '2026-09-25'].flatMap((date, index) => [
-        { ItemId: 123, ServiceType: 1, Price: 150 + index * 10, DateTime: date, ExchangeRate: 1 },
+        { ItemId: 123, ServiceType: 1, Price: 3.91, DateTime: `${date} 09:00:00`, ExchangeRate: 1 },
+        {
+          ItemId: 123,
+          ServiceType: 1,
+          Price: 150 + index * 10,
+          DateTime: `${date} 12:00:00`,
+          ExchangeRate: 1
+        },
         { ItemId: 123, ServiceType: 2, Price: 100 + index * 10, DateTime: date, ExchangeRate: 1 }
       ])
     })
@@ -100,11 +108,11 @@ app
     }
     await window.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
     await waitFor(
-      "[...document.querySelectorAll('button')].some(b => b.textContent === 'Atualizar este item')"
+      "[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === 'Atualizar este item')"
     )
     assert.equal(
       await evaluate(
-        "[...document.querySelectorAll('button')].find(b => b.textContent === 'Atualizar este item').disabled"
+        "[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Atualizar este item').disabled"
       ),
       true
     )
@@ -141,6 +149,42 @@ app
     await evaluate("document.querySelector('[data-sorttype=name]').click()")
     await evaluate("document.querySelector('.market_listing_row_link').click()")
     await waitFor("document.querySelectorAll('main canvas').length === 3")
+    assert.equal(
+      await evaluate("document.querySelector('#tab-0').textContent.includes('Menor preço')"),
+      true
+    )
+    assert.equal(
+      await evaluate(
+        "document.querySelector('#tab-0').textContent.includes('Na mínima histórica')"
+      ),
+      true
+    )
+    assert.equal(
+      await evaluate(
+        "document.querySelector('#tab-0').textContent.includes('+13% acima da mínima histórica')"
+      ),
+      true
+    )
+    await evaluate("document.querySelector('#price-tab-1').click()")
+    assert.equal(
+      await evaluate(
+        "document.querySelector('#tab-1').textContent.includes('Registrado em 01/01/2026')"
+      ),
+      true
+    )
+    assert.equal(
+      await evaluate("document.querySelector('#tab-1 a').getAttribute('href')"),
+      '#item-price-history'
+    )
+    await evaluate("document.querySelector('#price-tab-0').click()")
+    window.setSize(1600, 1000)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    fs.mkdirSync(path.resolve(__dirname, '../.integration-staging'), { recursive: true })
+    fs.writeFileSync(
+      path.resolve(__dirname, '../.integration-staging/price-overview.png'),
+      (await window.webContents.capturePage()).toPNG()
+    )
+    window.setSize(1100, 650)
     assert.equal(await evaluate("document.body.textContent.includes('3 dias com preço')"), true)
     await evaluate(
       "[...document.querySelectorAll('button')].find(b => b.textContent === '30 dias').click()"
@@ -157,10 +201,10 @@ app
       true
     )
     await waitFor(
-      "[...document.querySelectorAll('button')].some(b => b.textContent === 'Atualizar este item' && !b.disabled)"
+      "[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === 'Atualizar este item' && !b.disabled)"
     )
     await evaluate(
-      "[...document.querySelectorAll('button')].find(b => b.textContent === 'Atualizar este item').click()"
+      "[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Atualizar este item').click()"
     )
     await waitFor("document.querySelectorAll('[role=progressbar]').length === 2")
     assert.deepEqual(starts, [123])
@@ -183,7 +227,7 @@ app
     ])
     assert.equal(
       await evaluate(
-        "[...document.querySelectorAll('button')].find(b => b.textContent === 'Atualizar este item').disabled"
+        "[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Atualizar este item').disabled"
       ),
       true
     )
@@ -226,7 +270,7 @@ app
     )
     publish({ status: 'partial', message: 'Coleta finalizada com itens sem preço.' })
     await waitFor(
-      "[...document.querySelectorAll('button')].some(b => b.textContent === 'Atualizar este item' && !b.disabled)"
+      "[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === 'Atualizar este item' && !b.disabled)"
     )
     await new Promise((resolve) => setTimeout(resolve, 100))
     assert.equal(priceReads, 1)
@@ -252,13 +296,13 @@ app
     )
     assert.equal(
       await evaluate(
-        "[...document.querySelectorAll('button')].find(b => b.textContent === 'Atualizar este item').disabled"
+        "[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Atualizar este item').disabled"
       ),
       true
     )
     publish({ status: 'cancelled', message: 'Atualização cancelada. Preços coletados salvos.' })
     await waitFor(
-      "[...document.querySelectorAll('button')].some(b => b.textContent === 'Atualizar este item' && !b.disabled)"
+      "[...document.querySelectorAll('button')].some(b => b.getAttribute('aria-label') === 'Atualizar este item' && !b.disabled)"
     )
     console.log(
       'UI OK: item/all buttons, Steam 20% blue, DMarket 80% green, disabled state and data refresh.'

@@ -37,3 +37,29 @@ test('summary excludes missing and invalid prices and handles empty history', ()
   })
   assert.equal(api.priceSummary([]), null)
 })
+
+test('historical low matches the daily chart when a price is replaced later that day', () => {
+  const history = [
+    { ServiceType: 1, Price: 20.31, DateTime: '2025-12-09 12:34:54' },
+    { ServiceType: 1, Price: 3.91, DateTime: '2025-12-09 11:36:38' },
+    { ServiceType: 1, Price: 14.64, DateTime: '2025-09-19 11:02:45' },
+    { ServiceType: 2, Price: 12.05, DateTime: '2025-07-07 10:00:00' }
+  ]
+  assert.deepEqual(JSON.parse(JSON.stringify(api.historicalLow(history, 1))), {
+    Price: 14.64,
+    DateTime: '2025-09-19'
+  })
+  assert.equal(
+    api.historicalLow(history, 1).Price,
+    api.priceSummary(api.dailyPrices(history).map((day) => day.steam)).min
+  )
+  assert.equal(api.historicalLow(history, 2).Price, 12.05)
+  assert.equal(api.historicalLow([], 1), null)
+  assert.equal(
+    api.historicalLow(
+      [...history, { ServiceType: 1, Price: 14.64, DateTime: '2025-09-20 10:00:00' }],
+      1
+    ).DateTime,
+    '2025-09-20'
+  )
+})

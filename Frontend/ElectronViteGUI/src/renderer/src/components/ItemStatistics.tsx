@@ -206,7 +206,11 @@ export function ItemStatistics({ history }: { history: ItemHistory[] | null }): 
           )
         })}
       </Box>
-      <Paper variant="outlined" sx={{ p: 2, minWidth: 0 }}>
+      <Paper
+        id="item-price-history"
+        variant="outlined"
+        sx={{ p: 2, minWidth: 0, scrollMarginTop: '80px' }}
+      >
         <Typography sx={{ mb: 2, fontWeight: 600 }}>Histórico de preços</Typography>
         <Box sx={{ height: 320, position: 'relative', minWidth: 0 }}>
           <ChartLine data={filteredHistory} labels={[]} />

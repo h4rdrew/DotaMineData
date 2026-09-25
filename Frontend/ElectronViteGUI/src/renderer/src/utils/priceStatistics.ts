@@ -21,6 +21,20 @@ export function dailyPrices(history: ItemHistory[]): DailyPrice[] {
   return [...days.values()]
 }
 
+export function historicalLow(
+  history: ItemHistory[],
+  service: 1 | 2
+): { Price: number; DateTime: string } | null {
+  let low: { Price: number; DateTime: string } | null = null
+  for (const day of dailyPrices(history)) {
+    const price = service === 1 ? day.steam : day.dmarket
+    if (price !== null && (!low || price <= low.Price)) {
+      low = { Price: price, DateTime: day.date }
+    }
+  }
+  return low
+}
+
 export function priceSummary(values: (number | null)[]): {
   min: number
   max: number
