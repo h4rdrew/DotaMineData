@@ -837,7 +837,7 @@ function App(): JSX.Element {
                     <div
                       className="market_listing_right_cell market_sortable_column"
                       style={{ width: '100px' }}
-                      title="Variação do preço DMarket em relação à captura anterior do mesmo item"
+                      title="Variação DMarket: última captura da data selecionada em relação à última captura do dia anterior disponível"
                       role="button"
                       tabIndex={0}
                       onClick={() =>

@@ -8,7 +8,7 @@ const ts = require('typescript')
 const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
 
-test('prices compare successive captures per item and market, including previous days', () => {
+test('prices compare the last capture of distinct days per item and market', () => {
   const source = readFileSync(path.join(__dirname, '../src/main/ipc.ts'), 'utf8')
   const sql = source.match(/const latestPricesQuery = `([\s\S]*?)`/)[1]
   const db = new DatabaseSync(':memory:')
@@ -19,23 +19,30 @@ test('prices compare successive captures per item and market, including previous
       INSERT INTO ItemCaptured VALUES
         ('a', 2, '2026-09-23 10:00:00'), ('b', 2, '2026-09-25 10:00:00'),
         ('c', 2, '2026-09-25 12:00:00'), ('d', 1, '2026-09-25 13:00:00'),
-        ('e', 2, '2026-09-26 10:00:00');
+        ('e', 2, '2026-09-26 10:00:00'), ('f', 2, '2026-09-23 12:00:00');
       INSERT INTO CollectData (CaptureId, ItemId, Price) VALUES
         ('a', 1, 100), ('b', 1, 120), ('c', 1, 90), ('d', 1, 500), ('e', 1, 200),
-        ('a', 2, 50), ('b', 2, 60), ('b', 3, 30), ('a', 4, 40);
+        ('a', 2, 50), ('b', 2, 60), ('b', 3, 30), ('a', 4, 40),
+        ('f', 1, 110), ('c', 3, 30), ('c', 2, 60);
     `)
     const rows = db.prepare(sql).all('2026-09-25', '2026-09-25')
     assert.deepEqual(
       rows.map((row) => ({ ...row })),
       [
         { ServiceType: 1, Price: 500, ItemId: 1, PreviousPrice: null },
-        { ServiceType: 2, Price: 90, ItemId: 1, PreviousPrice: 120 },
+        { ServiceType: 2, Price: 90, ItemId: 1, PreviousPrice: 110 },
         { ServiceType: 2, Price: 60, ItemId: 2, PreviousPrice: 50 },
         { ServiceType: 2, Price: 30, ItemId: 3, PreviousPrice: null }
       ]
     )
     const historical = db.prepare(sql).all('2026-09-23', '2026-09-23')
     assert.ok(historical.every((row) => row.PreviousPrice === null))
+    const nextDay = db.prepare(sql).all('2026-09-26', '2026-09-26')
+    assert.deepEqual(
+      nextDay.map((row) => ({ ...row })),
+      [{ ServiceType: 2, Price: 200, ItemId: 1, PreviousPrice: 90 }]
+    )
+    assert.equal(db.prepare(sql).all('2026-09-24', '2026-09-24').length, 0)
   } finally {
     db.close()
   }

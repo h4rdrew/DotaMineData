@@ -7,18 +7,22 @@ import { execute, queryAll } from './database'
 import { fetchItemData } from './item-scraper'
 import { registerCollector } from './collector'
 
-const latestPricesQuery = `WITH CaptureHistory AS (
- SELECT cd.ItemId, cd.Price, ic.ServiceType, ic.DateTime,
- LAG(cd.Price) OVER (
-   PARTITION BY cd.ItemId, ic.ServiceType ORDER BY ic.DateTime, cd.Id
- ) AS PreviousPrice,
+const latestPricesQuery = `WITH DailyCaptures AS (
+ SELECT cd.ItemId, cd.Price, ic.ServiceType, DATE(ic.DateTime) AS CaptureDate,
  ROW_NUMBER() OVER (
-   PARTITION BY cd.ItemId, ic.ServiceType ORDER BY ic.DateTime DESC, cd.Id DESC
+   PARTITION BY cd.ItemId, ic.ServiceType, DATE(ic.DateTime)
+   ORDER BY ic.DateTime DESC, cd.Id DESC
  ) AS rowNumber
  FROM CollectData cd JOIN ItemCaptured ic ON cd.CaptureId = ic.CaptureId
  WHERE ic.ServiceType IN (1, 2) AND DATE(ic.DateTime) <= DATE(?)
+), CaptureHistory AS (
+ SELECT ItemId, Price, ServiceType, CaptureDate,
+ LAG(Price) OVER (
+   PARTITION BY ItemId, ServiceType ORDER BY CaptureDate
+ ) AS PreviousPrice
+ FROM DailyCaptures WHERE rowNumber = 1
 ) SELECT ServiceType, Price, ItemId, PreviousPrice FROM CaptureHistory
-WHERE rowNumber = 1 AND DATE(DateTime) = DATE(?) ORDER BY ItemId, ServiceType`
+WHERE CaptureDate = DATE(?) ORDER BY ItemId, ServiceType`
 
 export function registerIpcHandlers(): void {
   registerCollector()
