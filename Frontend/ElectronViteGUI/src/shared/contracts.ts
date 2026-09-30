@@ -43,6 +43,7 @@ export interface DesktopApi {
   getHeroes(): Promise<Hero[]>
   getItems(): Promise<Item[]>
   getItemData(itemId: number): Promise<ItemHistory[]>
+  getGeneralHistory(endDate: string): Promise<ItemHistory[]>
   getItemDataDateNow(): Promise<ItemPrice[]>
   getItemDataByDate(date: string): Promise<ItemPrice[]>
   getItemsByHero(heroId: number): Promise<Item[]>

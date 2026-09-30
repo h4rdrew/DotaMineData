@@ -41,6 +41,16 @@ app
       callback({ cancel: /^https?:/.test(details.url) })
     })
     ipcMain.handle('getHeroes', () => [])
+    ipcMain.handle('getGeneralHistory', (_event, endDate) => [
+      {
+        ItemId: 123,
+        ServiceType: 1,
+        Price: 100,
+        DateTime: endDate.slice(0, 8) + '01',
+        ExchangeRate: 1
+      },
+      { ItemId: 123, ServiceType: 1, Price: 80, DateTime: endDate, ExchangeRate: 1 }
+    ])
     ipcMain.handle('getitems', () => [
       item,
       { ...item, ItemId: 124, Name: 'Z Alta' },
@@ -307,6 +317,28 @@ app
     console.log(
       'UI OK: item/all buttons, Steam 20% blue, DMarket 80% green, disabled state and data refresh.'
     )
+    await evaluate(
+      "[...document.querySelectorAll('[role=dialog] button')].find(b => b.textContent === 'Fechar').click()"
+    )
+    await waitFor("document.querySelector('[role=dialog]') === null")
+    await evaluate(
+      "[...document.querySelectorAll('main button')].find(b => b.textContent === 'Estatísticas gerais').click()"
+    )
+    await waitFor("document.body.textContent.includes('Top 5 · Maiores quedas')")
+    await evaluate(`(() => {
+      const input = document.querySelector('input[type=date]');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '2026-09-30');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`)
+    await evaluate(
+      "[...document.querySelectorAll('button')].find(b => b.textContent === '30 dias').click()"
+    )
+    await waitFor("document.querySelector('main').textContent.includes('-20%')")
+    await evaluate(
+      "[...document.querySelectorAll('main button')].find(b => b.textContent === 'Item de teste').click()"
+    )
+    await waitFor("document.querySelector('.item-selected') !== null")
+    console.log('UI OK: general statistics navigation, period, price decrease and item drill-down.')
     clearTimeout(deadline)
     app.exit(0)
   })

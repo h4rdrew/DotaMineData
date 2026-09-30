@@ -3,6 +3,7 @@ import 'air-datepicker/air-datepicker.css'
 import 'air-datepicker/locale/pt' // Importa o idioma PT
 import { Heroes, ItemDataDateNow, ItemDB, ItemHistoric, ItemMenu } from './interfaces'
 import { ItemStatistics } from './components/ItemStatistics'
+import { GeneralStatistics } from './components/GeneralStatistics'
 import liquipediaLogo from './assets/liquipedia_logo.png'
 import ExternalLink from './components/ExternalLink'
 import svgStar from './assets/star.svg'
@@ -126,6 +127,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 function App(): JSX.Element {
   const theme = useTheme()
   const [open, setOpen] = React.useState(false)
+  const [screen, setScreen] = useState<'item' | 'general'>('item')
 
   const handleDrawerOpen = (): void => {
     setOpen(true)
@@ -243,6 +245,7 @@ function App(): JSX.Element {
     try {
       const data = await window.api.getItemData(item.ItemId)
       setSelectedItemData(data as unknown as ItemHistoric[])
+      setScreen('item')
       itemSelected.current = item.Name
       itemSelectedId.current = item.ItemId
       console.log(data)
@@ -1006,45 +1009,75 @@ function App(): JSX.Element {
           </Drawer>
           <Main open={open}>
             <DrawerHeader />
-            <div className="info-item-container">
-              <div className="item-selected">
-                <IconButton
-                  size="small"
-                  color="primary"
-                  aria-label="Atualizar este item"
-                  title="Atualizar este item"
-                  disabled={collecting || !itemSelectedId.current}
-                  onClick={() => beginCollection(itemSelectedId.current)}
-                >
-                  <SyncIcon fontSize="small" />
-                </IconButton>
-                <ExternalLink
-                  href={`https://liquipedia.net/dota2/${itemSelected.current.replace(/ /g, '_')}`}
-                  className="market-link"
-                >
-                  <img src={liquipediaLogo} alt="Liquipedia" height="20px" />
-                </ExternalLink>
-
-                <span
-                  className="pointer"
-                  onClick={(e) => copyItemNameToClipboard(e, itemSelected.current)}
-                >
-                  {itemSelected.current}
-                </span>
-
-                <small>({itemSelectedId.current})</small>
-              </div>
-
-              <PriceOverview
-                key={itemSelectedId.current}
-                history={selectedItemData}
-                prices={itemMenu.find((item) => item.ItemId === itemSelectedId.current)?.Data ?? []}
-                steamHref={createSteamHref(itemSelected.current)}
-                dmarketHref={createDmarketHref(itemSelected.current)}
+            <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+              <Button
+                variant={screen === 'item' ? 'contained' : 'outlined'}
+                onClick={() => setScreen('item')}
+              >
+                Estatísticas do item
+              </Button>
+              <Button
+                variant={screen === 'general' ? 'contained' : 'outlined'}
+                onClick={() => {
+                  setScreen('general')
+                  setOpen(false)
+                }}
+              >
+                Estatísticas gerais
+              </Button>
+            </Box>
+            {screen === 'general' ? (
+              <GeneralStatistics
+                refreshKey={`${collection.runId}:${collection.status}`}
+                onSelect={(item) => {
+                  void buscaDadosItem(item)
+                }}
               />
-            </div>
+            ) : (
+              <>
+                <div className="info-item-container">
+                  <div className="item-selected">
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      aria-label="Atualizar este item"
+                      title="Atualizar este item"
+                      disabled={collecting || !itemSelectedId.current}
+                      onClick={() => beginCollection(itemSelectedId.current)}
+                    >
+                      <SyncIcon fontSize="small" />
+                    </IconButton>
+                    <ExternalLink
+                      href={`https://liquipedia.net/dota2/${itemSelected.current.replace(/ /g, '_')}`}
+                      className="market-link"
+                    >
+                      <img src={liquipediaLogo} alt="Liquipedia" height="20px" />
+                    </ExternalLink>
 
-            <ItemStatistics key={itemSelectedId.current} history={selectedItemData} />
+                    <span
+                      className="pointer"
+                      onClick={(e) => copyItemNameToClipboard(e, itemSelected.current)}
+                    >
+                      {itemSelected.current}
+                    </span>
+
+                    <small>({itemSelectedId.current})</small>
+                  </div>
+
+                  <PriceOverview
+                    key={itemSelectedId.current}
+                    history={selectedItemData}
+                    prices={
+                      itemMenu.find((item) => item.ItemId === itemSelectedId.current)?.Data ?? []
+                    }
+                    steamHref={createSteamHref(itemSelected.current)}
+                    dmarketHref={createDmarketHref(itemSelected.current)}
+                  />
+                </div>
+
+                <ItemStatistics key={itemSelectedId.current} history={selectedItemData} />
+              </>
+            )}
           </Main>
         </Box>
         <Dialog

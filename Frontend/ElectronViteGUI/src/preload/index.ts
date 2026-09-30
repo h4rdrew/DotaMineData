@@ -17,6 +17,7 @@ const api: DesktopApi = {
   getHeroes: () => ipcRenderer.invoke('getHeroes'),
   getItems: () => ipcRenderer.invoke('getitems'),
   getItemData: (itemId) => ipcRenderer.invoke('getItemData', itemId),
+  getGeneralHistory: (endDate) => ipcRenderer.invoke('getGeneralHistory', endDate),
   getItemDataDateNow: () => ipcRenderer.invoke('getItemDataDateNow'),
   updateItemPurchased: (itemId: number, purchased: boolean): Promise<{ changes: number }> =>
     ipcRenderer.invoke('updateItemPurchased', itemId, purchased),

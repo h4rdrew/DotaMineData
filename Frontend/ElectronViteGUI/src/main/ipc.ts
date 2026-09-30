@@ -36,6 +36,25 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('fetchItemData', (_event, url: string) => fetchItemData(url))
   ipcMain.handle('getHeroes', () => queryAll<Hero>('SELECT * FROM Heroes ORDER BY Name'))
+  ipcMain.handle('getGeneralHistory', (_event, endDate: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || !Number.isFinite(Date.parse(endDate)))
+      throw new Error('Data inválida.')
+    return queryAll<ItemHistory>(
+      `WITH DailyPrices AS (
+        SELECT cd.ItemId, cd.Price, ic.ServiceType, ic.ExchangeRate,
+          DATE(ic.DateTime) AS DateTime,
+          ROW_NUMBER() OVER (
+            PARTITION BY cd.ItemId, ic.ServiceType, DATE(ic.DateTime)
+            ORDER BY ic.DateTime DESC, cd.Id DESC
+          ) AS Position
+        FROM CollectData cd JOIN ItemCaptured ic ON cd.CaptureId = ic.CaptureId
+        WHERE ic.ServiceType IN (1, 2) AND cd.Price > 0
+          AND DATE(ic.DateTime) BETWEEN DATE(?, '-30 days') AND DATE(?)
+      ) SELECT ItemId, Price, ServiceType, ExchangeRate, DateTime
+        FROM DailyPrices WHERE Position = 1 ORDER BY DateTime, ItemId, ServiceType`,
+      [endDate, endDate]
+    )
+  })
   ipcMain.handle('getitems', () => queryAll<Item>('SELECT * FROM Item ORDER BY Name'))
   ipcMain.handle('getItemsByHero', (_event, heroId: number) =>
     queryAll<Item>('SELECT * FROM Item WHERE Hero = ? ORDER BY Name', [heroId])
